@@ -16,4 +16,6 @@ The workhorse functions for planetary system simulation, transit detection, and 
 Analysis notebooks are under notebooks/. 
 
 #### A note on the name: 
-[Bobby Mastrangelo](https://bobbimastrangelo.com/) is a Floridian artist whose medium is manhole covers. Here is a manhole cover art that reminds me of planetary architectures: ![Screen Shot 2023-04-26 at 3 23 54 PM](https://user-images.githubusercontent.com/16911363/234681422-eb24bdf5-9cba-4752-a35f-8da9ffa07a6f.png)
+[Bobby Mastrangelo](https://bobbimastrangelo.com/) is a Floridian artist whose medium is manhole covers. Here is a manhole cover art that reminds me of planetary architectures: 
+
+![Screen Shot 2023-04-26 at 3 23 54 PM](https://user-images.githubusercontent.com/16911363/234681422-eb24bdf5-9cba-4752-a35f-8da9ffa07a6f.png)
