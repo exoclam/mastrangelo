@@ -1,7 +1,7 @@
 # mastrangelo
 Does dynamical sculpting happen? If so, how fast does it happen? Let's find out! 
 
-Let's start from the beginning, shall we?
+Let's start from the beginning.
 
 Dynamical sculpting is the idea that the orbital architectures of planetary systems excite over time, leading to configurations of higher mutual inclination and eccentricity. Side effects include planet-planet scattering that ejects planets from the system outright, and so sculpting can be imprinted in changes in the transit yield both through lower intrinsic counts and less favorable transit geometries. 
 
