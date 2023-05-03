@@ -16,6 +16,8 @@ The workhorse functions for planetary system simulation, transit detection, and 
 Analysis notebooks are under notebooks/. 
 
 #### A note on the name: 
-[Bobbi Mastrangelo](https://bobbimastrangelo.com/) is a Floridian artist whose medium is manhole covers. Here is a manhole cover art that reminds me of planetary architectures: 
+[Bobbi Mastrangelo](https://bobbimastrangelo.com/) is a Floridian artist whose medium is manhole covers. Here is a manhole cover art that reminds me of planetary architectures ("When the People Care"): 
 
 ![Screen Shot 2023-04-26 at 3 23 54 PM](https://user-images.githubusercontent.com/16911363/234681422-eb24bdf5-9cba-4752-a35f-8da9ffa07a6f.png)
+
+In particular, this sculpture makes me think of an alternate way that dynamical sculpting can imprint on a planetary system: changes in the period ratio between adjacent planets. That is, the spacing between orbits might change over time, rather than (or in addition to) the mutual inclinations and eccentricities.
