@@ -13,7 +13,7 @@ Sample selection is done in the stars-and-planets.ipynb notebook in notebooks/.
 
 The workhorse functions for planetary system simulation, transit detection, and subsequent products like calculation of angular momentum deficit (AMD) and log likelihood compared to the observed Kepler transit multiplicity are in the mastrangelo/ folder. These functions are executed in embarrassingly parallel fashion on the University of Florida's HiPerGator HPC cluster.
 
-Analysis notebooks are under notebooks/. 
+Analysis notebooks will go under notebooks/. 
 
 #### A note on the name: 
 [Bobbi Mastrangelo](https://bobbimastrangelo.com/) is a Floridian artist whose medium is manhole covers. Here is a manhole cover art that reminds me of planetary architectures ("When the People Care"): 
