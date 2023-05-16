@@ -451,6 +451,8 @@ def model_direct_draw(cube):
 
 def model_vectorized(df, model_flag, cube):
 
+    debug = True
+
     if len(cube)==3: # ie. if we're applying f post-hoc, in order to avoid sampling in 4 dimensions
         # unpack model parameters from hypercube
         m, b, cutoff = cube[0], cube[1], cube[2]
@@ -474,6 +476,10 @@ def model_vectorized(df, model_flag, cube):
         plt.show()
         quit()
         """
+        if debug == True:
+            print(len(df.prob_intact), len(df.loc[df.prob_intact.isna()]))
+            quit()
+
         df['intact_flag'] = df.prob_intact.apply(lambda x: assign_intact_flag(x))
         #df['intact_flag'] = assign_intact_flag(df.prob_intact)
         #np.random.choice(['intact', 'disrupted'], p=[np.array(df.prob_intact), 1-np.array(df.prob_intact)])
@@ -623,7 +629,7 @@ def model_vectorized(df, model_flag, cube):
         # draw eccentricity
         if (model_flag=='limbach-hybrid') | (model_flag=='limbach'):
             # for drawing eccentricities using Limbach & Turner 2014 CDFs relating e to multiplicity
-            limbach = pd.read_csv(path+'limbach_cdfs.txt', engine='python', header=0, sep='\s{2,20}') # space-agnostic separator
+            limbach = pd.read_csv(path+'data/limbach_cdfs.txt', engine='python', header=0, sep='\s{2,20}') # space-agnostic separator
             df['ecc'] = df.num_planets.apply(lambda x: draw_eccentricity_van_eylen_vectorized(model_flag, x, limbach))
         else:
             df['ecc'] = df.num_planets.apply(lambda x: draw_eccentricity_van_eylen_vectorized(model_flag, x))
@@ -741,7 +747,7 @@ def model_van_eylen(star_age, df, model_flag, cube):
     for age in star_age:
         # sometimes make more than one planet per system
         prob = compute_prob(age, m, b, cutoff)
-        #print(age, prob)
+        print("age and prob: ", age, prob)
         
         # midplane
         midplane = np.random.uniform(-np.pi/2,np.pi/2,1)

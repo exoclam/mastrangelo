@@ -1,6 +1,6 @@
 """
 This is the home of the main function for the transit simulation machinery. It uses general helper functions from simulate_helpers and a transit workhorse code
-from simulate_transit to output transit statuses for simulated systems. Likelihood_main.py will read in those files and compute logL. 
+from simulate_transit to output transit statuses for simulated systems.
 """
 
 import json
@@ -30,8 +30,7 @@ from simulate_helpers import *
 path = '/Users/chris/Desktop/sculpting/' # new computer has different username
 berger_kepler = pd.read_csv(path+'berger_kepler_stellar_fgk.csv') # crossmatched with Gaia via Bedell, previously berger_kepler_stellar17.csv
 pnum = pd.read_csv(path+'pnum_plus_cands_fgk.csv') # previously pnum_plus_cands.csv
-pnum = pnum.drop_duplicates(['kepid'])
-k = pnum.koi_count.value_counts() 
+k = pnum.groupby('kepid').count().koi_count.reset_index().groupby('koi_count').count()
 #k = pd.Series([len(berger_kepler)-np.sum(k), 244, 51, 12, 8, 1]) 
 #k = pd.Series([len(berger_kepler)-np.sum(k), 833, 134, 38, 15, 5])
 k = pd.Series([833, 134, 38, 15, 5, 0])
