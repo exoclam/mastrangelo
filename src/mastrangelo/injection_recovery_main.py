@@ -82,21 +82,18 @@ def better_loglike(lam, k):
 	return np.sum(logL)
 
 
-def main(cube, ndim, nparams, k):
+def main(cube, ndim, nparams):
 	"""
-	For each of the three main hyperparams, I make 50 simulations (50000 total simulations). I use the original way of sampling eccentricities.
+	For each of the three main hyperparams, I make N simulations (N * 10000 total simulations). 
 	I output each simulation to a folder and never run them again. The I/O for calculating logLs will be worth not having to re-run simulations.
-	For each of the 50K resulting lambdas, I create 10 of varying fraction of systems with planets (the fourth hyperparam).
+	For each of the N * 10K resulting lambdas, I create 10 of varying fraction of systems with planets (the fourth hyperparam).
 	I run separate code to compute logLs for each 4-hyperparam combination and plot that as I have done before.
 	I do the same, now using the Rayleigh-Limbach hybrid eccentricity distribution. 
-
-	Eventually, I do the same using pymultinest. A man can dream.
 
 	Params: 
 	- cube: [m, b, cutoff]
 	- ndim: number of dimensions, will be 4 instead of 3 for pymultinest
 	- nparams: number of parameters, will be 4 instead of 3 for pymultinest
-	- k: ground truth transit multiplicity (Pandas Series)
 	"""
 
 	# ad hoc logic bc HPG ran out of memory and I don't want to redo already-finished simulations
@@ -126,15 +123,22 @@ def main(cube, ndim, nparams, k):
 						berger_kepler_planets.to_csv(output_filename)
 
 	return
-    
+
+
+"""
+cube = prior_grid_logslope(cube, ndim, nparams, 0, 0, 0)
 
 start = time.time()
 model_vectorized(berger_kepler, 'limbach-hybrid', cube)
 end = time.time()
 print("elapsed vectorized: ", end-start)
+# it was 32 seconds
 
 start = time.time()
 model_van_eylen(berger_kepler.iso_age, berger_kepler, 'limbach-hybrid', cube)
 end = time.time()
 print("elapsed non-vectorized: ", end-start)
-#main(cube, ndim, nparams, k)
+# it was 171 seconds, or about 6 times slower 
+"""
+
+main(cube, ndim, nparams)

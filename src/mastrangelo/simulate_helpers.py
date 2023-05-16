@@ -79,14 +79,18 @@ def compute_prob(x, m, b, cutoff): # adapted from Ballard et al in prep, log ver
     return y
 
 def compute_prob_vectorized(df, m, b, cutoff): # adapted from Ballard et al in prep, log version
-    # calculate probability of intact vs disrupted
+    """ 
+    Calculate the probability of system being intact vs disrupted, based on its age and the sculpting law.
 
-    # if/elif/elif/etc in vectorized form
-    """
-    df['prob_intact'] = np.where(
-        df['iso_age']*1e9 <= 1e8, b, np.where(
-            df['iso_age']*1e9 > 1e8, b+m*(np.log10(df['iso_age'])-8), np.where(
-                df['iso_age']*1e9 > cutoff, b+m*(np.log10(cutoff)-8))))
+    Input:
+    - df: DataFrame of stars, with age column "iso_age"
+    - m: sculpting law slope [dex]
+    - b: sculpting law initial intact probability
+    - cutoff: sculpting law turnoff time [yrs]
+
+    Output:
+    - df: same as input, but with new column called prob_intact
+    
     """
 
     df['prob_intact'] = np.where(

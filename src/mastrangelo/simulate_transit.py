@@ -451,7 +451,7 @@ def model_direct_draw(cube):
 
 def model_vectorized(df, model_flag, cube):
 
-    debug = True
+    debug = False
 
     if len(cube)==3: # ie. if we're applying f post-hoc, in order to avoid sampling in 4 dimensions
         # unpack model parameters from hypercube
@@ -469,17 +469,12 @@ def model_vectorized(df, model_flag, cube):
         # generate midplane per star
         df['midplanes'] = np.random.uniform(-np.pi/2, np.pi/2, len(df))
 
-        # assign intact flag
-        """
-        print(len(df.prob_intact), len(df.loc[df.prob_intact.isna()]))
-        plt.hist(df.prob_intact)
-        plt.show()
-        quit()
-        """
-        if debug == True:
+        if debug==True:
             print(len(df.prob_intact), len(df.loc[df.prob_intact.isna()]))
-            quit()
-
+            plt.hist(df.prob_intact)
+            plt.show()
+        
+        # assign intact flag
         df['intact_flag'] = df.prob_intact.apply(lambda x: assign_intact_flag(x))
         #df['intact_flag'] = assign_intact_flag(df.prob_intact)
         #np.random.choice(['intact', 'disrupted'], p=[np.array(df.prob_intact), 1-np.array(df.prob_intact)])
@@ -747,7 +742,6 @@ def model_van_eylen(star_age, df, model_flag, cube):
     for age in star_age:
         # sometimes make more than one planet per system
         prob = compute_prob(age, m, b, cutoff)
-        print("age and prob: ", age, prob)
         
         # midplane
         midplane = np.random.uniform(-np.pi/2,np.pi/2,1)
