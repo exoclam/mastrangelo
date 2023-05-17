@@ -224,10 +224,10 @@ def calculate_transit_vectorized(P, star_radius, planet_radius, e, incl, omega, 
     """
     Params: columns of the berger_kepler dataframe
     Returns:
-    - Probabilities of detection: Numpy array
-    - Transit statuses: Numpy array
-    - Transit multiplicities (lambdas for calculating logLs): Numpy array
-    - S/N ratios: Numpy array
+    - prob_detections: probabilities of detection; Numpy array
+    - transit_statuses: Numpy array
+    - sn: S/N ratios; Numpy array
+    - geom_transit_status: geometric transit status; Numpy array
     """
 
     #print(P, star_radius, planet_radius, e, incl, omega, star_mass, cdpps)
@@ -245,7 +245,7 @@ def calculate_transit_vectorized(P, star_radius, planet_radius, e, incl, omega, 
     # make sure arrays have explicitly float elements
     planet_radius = planet_radius.astype(float)
     star_radius = star_radius.astype(float)
-    a = a.astype(float)
+    a = a.astype(float)    
     
     # calculate transit durations using Winn 2011 formula; same units as period
     #tdur = calculate_transit_duration(P, solar_radius_to_au(star_radius), 
@@ -259,8 +259,14 @@ def calculate_transit_vectorized(P, star_radius, planet_radius, e, incl, omega, 
     
     # calculate SN based on Eqn 4 in Christiansen et al 2012
     sn = calculate_sn_vectorized(P, planet_radius, star_radius, cdpps, tdur, unit_test_flag=False)
-    #print("number of nonzero SN: ", len(np.where(sn>0)[0]))
     
+    # it's weird that I'm tabulating geometric transits now, but I get free info on it from NaNs in the S/N calculation portion
+    geom_transit_status = np.where(np.isnan(sn), 0, 1)
+
+    # NOW I can fill in NaNs with zeros
+    sn = sn.fillna(0)
+    #print("number of nonzero SN: ", len(np.where(sn>0)[0]))
+
     # calculate Fressin detection probability based on S/N
     #ts2 = [1 if sn_elt >= 7.1 else 0 for sn_elt in sn] # S/N threshold before Fressin et al 2013
     #prob_detection = np.array([0.1*(sn_elt-6) for sn_elt in sn]) # S/N threshold using Fressin et al 2013
@@ -282,7 +288,7 @@ def calculate_transit_vectorized(P, star_radius, planet_radius, e, incl, omega, 
     #transit_multiplicities.append(len([ts for ts in transit_status if ts == 1]))
     #transit_multiplicities.append(len([param for param in b if np.abs(param) <= 1.]))
 
-    return prob_detections, transit_statuses, sn
+    return prob_detections, transit_statuses, sn, geom_transit_status
 
 def model_direct_draw(cube):
     """
@@ -547,7 +553,7 @@ def model_vectorized(df, model_flag, cube):
         second_term2 = berger_kepler_planets['mutual_incl'].apply(lambda x: np.cos(x))
         berger_kepler_planets['second_terms'] = 1 - second_term1*second_term2
 
-        prob_detections, transit_statuses, sn = calculate_transit_vectorized(berger_kepler_planets.P, 
+        prob_detections, transit_statuses, sn, geom_transit_statuses = calculate_transit_vectorized(berger_kepler_planets.P, 
                                 berger_kepler_planets.iso_rad, berger_kepler_planets.planet_radius,
                                 berger_kepler_planets.ecc, 
                                 berger_kepler_planets.incl, 
@@ -559,6 +565,7 @@ def model_vectorized(df, model_flag, cube):
         #print(berger_kepler_planets['transit_status'])
         #print(berger_kepler_planets.loc[berger_kepler_planets.transit_status > 0])
         berger_kepler_planets['sn'] = sn
+        berger_kepler_planets['geom_transit_status'] = geom_transit_statuses
         
         """
         # AMDs

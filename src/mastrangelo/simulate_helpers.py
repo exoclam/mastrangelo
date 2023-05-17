@@ -90,7 +90,7 @@ def compute_prob_vectorized(df, m, b, cutoff): # adapted from Ballard et al in p
 
     Output:
     - df: same as input, but with new column called prob_intact
-    
+
     """
 
     df['prob_intact'] = np.where(
@@ -441,6 +441,7 @@ def calculate_sn(P, rp, rs, cdpp, tdur, unit_test_flag=False):
         return sn
 
 def calculate_sn_vectorized(P, rp, rs, cdpp, tdur, unit_test_flag=False): 
+    
     """
     Calculate S/N per planet using Eqn 4 in Christiansen et al 2012: https://arxiv.org/pdf/1208.0595.pdf
     
@@ -448,26 +449,22 @@ def calculate_sn_vectorized(P, rp, rs, cdpp, tdur, unit_test_flag=False):
     
     Returns: S/N
     """
+
     tobs = 365*3.5 # days; time spanned observing the target; set to 3.5 years, or the length of Kepler mission
     f0 = 0.92 # fraction of time spent actually observing and not doing spacecraft things
     tcdpp = 0.25 # days; using CDPP for 6 hour transit durations; could change to be more like Earth transiting Sun?
     rp = solar_radius_to_au(rp) # earth_radius_to_au when not using Matthias's test set
     rs = solar_radius_to_au(rs)
-    #print(P, rp, rs, cdpp, tdur)
+
     factor1 = tobs*f0/P.apply(lambda x: np.sqrt(x)) # this is the number of transits
     delta = 1e6*(rp/rs)**2 # convert from parts per unit to ppm
     cdpp_eff = cdpp * tcdpp/tdur.apply(lambda x: np.sqrt(x))
-    #print("CDPP ingredients: ", cdpp, tcdpp, tdur)
+
     factor2 = delta/cdpp_eff
     sn = factor1 * factor2
+
     """
-    print("periods: ", P, P.apply(lambda x: np.sqrt(x)))
-    print("tdurs: ", tdur, tdur.apply(lambda x: np.sqrt(x)))
-    print("tcdpp: ", tcdpp)
-    print("cdpp_eff: ", cdpp, cdpp_eff)
-    print("sn")
-    quit()
-    """
+    NEED TO KEEP NANS ACTUALLY FOR FREE INFORMATION ON GEOMETRIC TRANSITS
     if unit_test_flag==True:
         if np.isnan(sn)==True:
             sn = 0
@@ -475,6 +472,9 @@ def calculate_sn_vectorized(P, rp, rs, cdpp, tdur, unit_test_flag=False):
     else:
         sn = sn.fillna(0)
         return sn
+    """
+
+    return sn
 
 def draw_cdpp(star_radius, df):
     df = df.loc[(df.st_radius<star_radius+0.15)&(df.st_radius>star_radius-0.15)]
@@ -487,4 +487,21 @@ def draw_cdpp_array(star_radius, df):
     cdpp = [draw_cdpp(sr, berger_kepler) for sr in star_radius]
     return cdpp
 
-#calculate_eccentricity_limbach(2)
+def draw_star(df):
+    """
+    Draw star's age, metallicity, and effective temperature based on given errors. Enrich input DataFrame.
+    """
+    
+    # draw age
+    df.iso_age_err = 0.5 * (df.iso_age_err1 + np.abs(df.iso_age_err2))
+    df.age =  np.random.normal(df.iso_age, df.iso_age_err)
+
+    # draw metallicity...if I do feh instead of iso_feh, do I get a lot of NaNs??
+    df.feh_err = 0.5 * (df.feh_err1 + np.abs(df.feh_err2))
+    df.feh = np.random.normal(uniques.feh_x, uniques.feh_err)
+
+    # draw Teff
+    df.teff_err = 0.5 * (df.iso_teff_err1 + np.abs(df.iso_teff_err2))
+    df.teff =  np.random.normal(df.iso_teff, df.iso_teff_err)
+
+    return df

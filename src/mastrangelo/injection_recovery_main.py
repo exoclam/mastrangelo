@@ -25,6 +25,11 @@ from simulate_helpers import *
 
 path = '/Users/chris/Desktop/mastrangelo/' # new computer has different username
 berger_kepler = pd.read_csv(path+'data/berger_kepler_stellar_fgk.csv') # crossmatched with Gaia via Bedell
+
+# make berger_kepler more wieldy
+berger_kepler = berger_kepler[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
+						     'iso_age', 'iso_age_err1', 'iso_age_err2']]
+
 #pnum = pd.read_csv(path+'data/pnum_plus_cands_fgk.csv') # planet hosts among crossmatched Berger sample
 #k = pnum.groupby('kepid').count().koi_count.reset_index().groupby('koi_count').count()
 k = pd.Series([833, 134, 38, 15, 5, 0])
@@ -82,8 +87,9 @@ def better_loglike(lam, k):
 	return np.sum(logL)
 
 
-def main(cube, ndim, nparams):
+def main_ground_truth(cube, ndim, nparams):
 	"""
+	CREATE FAKE GROUND TRUTH DATASET BY SIMULATING SYSTEMS FOR EACH STAR USING THE GIVEN MEAN STELLAR VALUES FROM KEPLER-GAIA CROSSMATCH
 	For each of the three main hyperparams, I make N simulations (N * 10000 total simulations). 
 	I output each simulation to a folder and never run them again. The I/O for calculating logLs will be worth not having to re-run simulations.
 	For each of the N * 10K resulting lambdas, I create 10 of varying fraction of systems with planets (the fourth hyperparam).
@@ -120,12 +126,58 @@ def main(cube, ndim, nparams):
 					for i in range(1):
 						output_filename = path + 'systems/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
 						berger_kepler_planets = model_vectorized(berger_kepler, 'limbach-hybrid', cube)
+						berger_kepler_planets = berger_kepler_planets[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
+						     'iso_age', 'iso_age_err1', 'iso_age_err2', 'logR','is_giant','fractional_err1','fractional_err2','prob_intact','midplanes',
+							 'intact_flag','sigma','num_planets','P','incl','mutual_incl','ecc','omega','lambda_ks','second_terms','transit_status',
+							 'prob_detections','sn']]
 						berger_kepler_planets.to_csv(output_filename)
 
 	return
 
 
+def main_recovery(cube, ndim, nparams):
+	"""
+	CREATE 30 REALIZATIONS FOR EACH STAR, USING ERRORS.
+	FOR EACH REALIZATION, COMPARE 
+	"""
+
+	# do the trivial case of everybody is disrupted, just once
+	cube = prior_grid_logslope(cube, ndim, nparams, 0, 0, 0)
+	for i in range(30):
+		berger_kepler_temp = draw_star(berger_kepler)
+		output_filename = path + 'systems-recovery/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
+		berger_kepler_planets = model_vectorized(berger_kepler_temp, 'limbach-hybrid', cube)
+		berger_kepler_planets = berger_kepler_planets[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
+				'iso_age', 'iso_age_err1', 'iso_age_err2', 'logR','is_giant','fractional_err1','fractional_err2','prob_intact','midplanes',
+				'intact_flag','sigma','num_planets','P','incl','mutual_incl','ecc','omega','lambda_ks','second_terms','transit_status',
+				'prob_detections','sn']]
+		berger_kepler_planets.to_csv(output_filename)
+	
+	# now do the rest
+	for gi_m in range(3):
+		for gi_b in range(2):
+			for gi_c in tqdm(range(3)):
+				
+				# increment to account for trivial case already being run
+				gi_b = gi_b + 1 
+
+				# fetch hyperparams
+				cube = prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c)
+
+				for i in range(30):
+					berger_kepler_temp = draw_star(berger_kepler)
+					output_filename = path + 'systems-recovery/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
+					berger_kepler_planets = model_vectorized(berger_kepler_temp, 'limbach-hybrid', cube)
+					berger_kepler_planets = berger_kepler_planets[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
+							'iso_age', 'iso_age_err1', 'iso_age_err2', 'logR','is_giant','fractional_err1','fractional_err2','prob_intact','midplanes',
+							'intact_flag','sigma','num_planets','P','incl','mutual_incl','ecc','omega','lambda_ks','second_terms','transit_status',
+							'prob_detections','sn']]
+					berger_kepler_planets.to_csv(output_filename)
+
+	return
+
 """
+VECTORIZATION SPEED TEST
 cube = prior_grid_logslope(cube, ndim, nparams, 0, 0, 0)
 
 start = time.time()
@@ -141,4 +193,4 @@ print("elapsed non-vectorized: ", end-start)
 # it was 171 seconds, or about 6 times slower 
 """
 
-main(cube, ndim, nparams)
+main_ground_truth(cube, ndim, nparams)
