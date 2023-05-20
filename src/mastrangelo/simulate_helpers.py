@@ -491,17 +491,25 @@ def draw_star(df):
     """
     Draw star's age, metallicity, and effective temperature based on given errors. Enrich input DataFrame.
     """
-    
+
+    # in case df is broken up by planet and not star
+    uniques = df.drop_duplicates(subset=['kepid'])
+
     # draw age
-    df.iso_age_err = 0.5 * (df.iso_age_err1 + np.abs(df.iso_age_err2))
-    df.age =  np.random.normal(df.iso_age, df.iso_age_err)
+    uniques['iso_age_err'] = 0.5 * (uniques.iso_age_err1 + np.abs(uniques.iso_age_err2))
+    uniques['age'] =  np.random.normal(uniques.iso_age, uniques.iso_age_err)
 
     # draw metallicity...if I do feh instead of iso_feh, do I get a lot of NaNs??
-    df.feh_err = 0.5 * (df.feh_err1 + np.abs(df.feh_err2))
-    df.feh = np.random.normal(uniques.feh_x, uniques.feh_err)
+    uniques['feh_err'] = 0.5 * (uniques.feh_err1 + np.abs(uniques.feh_err2))
+    uniques['feh'] = np.random.normal(uniques.feh_x, uniques.feh_err)
 
     # draw Teff
-    df.teff_err = 0.5 * (df.iso_teff_err1 + np.abs(df.iso_teff_err2))
-    df.teff =  np.random.normal(df.iso_teff, df.iso_teff_err)
+    uniques['iso_teff_err'] = 0.5 * (uniques.iso_teff_err1 + np.abs(uniques.iso_teff_err2))
+    uniques['teff'] = np.random.normal(uniques.iso_teff, uniques.iso_teff_err)
+
+    # break back out into planet rows and forward fill across systems
+    df = uniques.merge(df, how='right')
+    df['age'] = df.age.fillna(method='ffill')
+    df['feh'] = df.feh.fillna(method='ffill')
 
     return df

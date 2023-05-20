@@ -28,7 +28,8 @@ berger_kepler = pd.read_csv(path+'data/berger_kepler_stellar_fgk.csv') # crossma
 
 # make berger_kepler more wieldy
 berger_kepler = berger_kepler[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
-						     'iso_age', 'iso_age_err1', 'iso_age_err2']]
+						     'iso_age', 'iso_age_err1', 'iso_age_err2', 'iso_mass', 'iso_rad', 'rrmscdpp06p0',
+							 'fractional_err1', 'logR', 'fractional_err2', 'is_giant']]
 
 #pnum = pd.read_csv(path+'data/pnum_plus_cands_fgk.csv') # planet hosts among crossmatched Berger sample
 #k = pnum.groupby('kepid').count().koi_count.reset_index().groupby('koi_count').count()
@@ -73,11 +74,12 @@ def better_loglike(lam, k):
 	logL = []
 	#print(lam)
 	for i in range(len(lam)):
-		if lam[i]==0:    
+		if lam[i]==0:
 			term3 = -lgamma(k[i]+1)
 			term2 = -lam[i]
 			term1 = 0
 			logL.append(term1+term2+term3)
+
 		else:
 			term3 = -lgamma(k[i]+1)
 			term2 = -lam[i]
@@ -145,11 +147,11 @@ def main_recovery(cube, ndim, nparams):
 	cube = prior_grid_logslope(cube, ndim, nparams, 0, 0, 0)
 	for i in range(30):
 		berger_kepler_temp = draw_star(berger_kepler)
-		output_filename = path + 'systems-recovery/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
+		output_filename = path + 'systems-recovery/transits0_0_0_' + str(i) + '.csv'
 		berger_kepler_planets = model_vectorized(berger_kepler_temp, 'limbach-hybrid', cube)
 		berger_kepler_planets = berger_kepler_planets[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
 				'iso_age', 'iso_age_err1', 'iso_age_err2', 'logR','is_giant','fractional_err1','fractional_err2','prob_intact','midplanes',
-				'intact_flag','sigma','num_planets','P','incl','mutual_incl','ecc','omega','lambda_ks','second_terms','transit_status',
+				'intact_flag','sigma','num_planets','P','incl','mutual_incl','ecc','omega','lambda_ks','second_terms','geom_transit_status','transit_status',
 				'prob_detections','sn']]
 		berger_kepler_planets.to_csv(output_filename)
 	
@@ -170,9 +172,11 @@ def main_recovery(cube, ndim, nparams):
 					berger_kepler_planets = model_vectorized(berger_kepler_temp, 'limbach-hybrid', cube)
 					berger_kepler_planets = berger_kepler_planets[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
 							'iso_age', 'iso_age_err1', 'iso_age_err2', 'logR','is_giant','fractional_err1','fractional_err2','prob_intact','midplanes',
-							'intact_flag','sigma','num_planets','P','incl','mutual_incl','ecc','omega','lambda_ks','second_terms','transit_status',
+							'intact_flag','sigma','num_planets','P','incl','mutual_incl','ecc','omega','lambda_ks','second_terms','geom_transit_status','transit_status',
 							'prob_detections','sn']]
 					berger_kepler_planets.to_csv(output_filename)
+					print("done with test")
+					quit()
 
 	return
 
@@ -193,4 +197,4 @@ print("elapsed non-vectorized: ", end-start)
 # it was 171 seconds, or about 6 times slower 
 """
 
-main_ground_truth(cube, ndim, nparams)
+main_recovery(cube, ndim, nparams)
