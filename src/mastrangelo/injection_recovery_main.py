@@ -23,8 +23,11 @@ import matplotlib.pyplot as plt
 from simulate_transit import * 
 from simulate_helpers import *
 
+#input_path = '/blue/sarahballard/c.lam/sculpting2/' # HPG
+#output_path = '/blue/sarahballard/c.lam/sculpting2/mastrangelo/' # HPG
 path = '/Users/chris/Desktop/mastrangelo/' # new computer has different username
 berger_kepler = pd.read_csv(path+'data/berger_kepler_stellar_fgk.csv') # crossmatched with Gaia via Bedell
+#berger_kepler = pd.read_csv(input_path+'berger_kepler_stellar_fgk.csv') # crossmatched with Gaia via Bedell
 
 # make berger_kepler more wieldy
 berger_kepler = berger_kepler[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
@@ -168,6 +171,7 @@ def main_recovery(cube, ndim, nparams):
 
 				for i in range(30):
 					berger_kepler_temp = draw_star(berger_kepler)
+					#output_filename = output_path + 'systems-recovery/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
 					output_filename = path + 'systems-recovery/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
 					berger_kepler_planets = model_vectorized(berger_kepler_temp, 'limbach-hybrid', cube)
 					berger_kepler_planets = berger_kepler_planets[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
