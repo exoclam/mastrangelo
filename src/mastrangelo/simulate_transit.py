@@ -16,6 +16,8 @@ import timeit
 from datetime import datetime
 
 G = 6.6743e-8 # gravitational constant in cgs
+input_path = '/blue/sarahballard/c.lam/sculpting2/' # HPG
+#path = '/Users/chris/Desktop/mastrangelo/' # new computer has different username
 
 def calculate_transit_unit_test(planet_radius, star_radius, P, e, incl, omega, star_mass, cdpp):
     
@@ -506,7 +508,7 @@ def model_vectorized(df, model_flag, cube):
         # draw eccentricity
         if (model_flag=='limbach-hybrid') | (model_flag=='limbach'):
             # for drawing eccentricities using Limbach & Turner 2014 CDFs relating e to multiplicity
-            limbach = pd.read_csv(path+'limbach_cdfs.txt', engine='python', header=0, sep='\s{2,20}') # space-agnostic separator
+            limbach = pd.read_csv(input_path+'limbach_cdfs.txt', engine='python', header=0, sep='\s{2,20}') # space-agnostic separator
             df['ecc'] = df.num_planets.apply(lambda x: draw_eccentricity_van_eylen_vectorized(model_flag, x, limbach))
         else:
             df['ecc'] = df.num_planets.apply(lambda x: draw_eccentricity_van_eylen_vectorized(model_flag, x))
