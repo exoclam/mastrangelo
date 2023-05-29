@@ -17,7 +17,7 @@ from datetime import datetime
 
 G = 6.6743e-8 # gravitational constant in cgs
 input_path = '/blue/sarahballard/c.lam/sculpting2/' # HPG
-#path = '/Users/chris/Desktop/mastrangelo/' # new computer has different username
+path = '/Users/chris/Desktop/mastrangelo/' # new computer has different username
 
 def calculate_transit_unit_test(planet_radius, star_radius, P, e, incl, omega, star_mass, cdpp):
     
@@ -225,12 +225,16 @@ def calculate_transit_me_with_amd(P, star_radius, planet_radius, e, incl, omega,
 def calculate_transit_vectorized(P, star_radius, planet_radius, e, incl, omega, star_mass, cdpps, angle_flag):
     """
     Params: columns of the berger_kepler dataframe
+    - cdpps: originally in ppm; must first convert to parts per unit
     Returns:
     - prob_detections: probabilities of detection; Numpy array
     - transit_statuses: Numpy array
     - sn: S/N ratios; Numpy array
     - geom_transit_status: geometric transit status; Numpy array
     """
+
+    # convert CDPP from ppm to parts per unit
+    cdpps = cdpps * 1e6
 
     #print(P, star_radius, planet_radius, e, incl, omega, star_mass, cdpps)
     prob_detections = []
@@ -261,7 +265,7 @@ def calculate_transit_vectorized(P, star_radius, planet_radius, e, incl, omega, 
     
     # calculate SN based on Eqn 4 in Christiansen et al 2012
     sn = calculate_sn_vectorized(P, planet_radius, star_radius, cdpps, tdur, unit_test_flag=False)
-    
+
     # it's weird that I'm tabulating geometric transits now, but I get free info on it from NaNs in the S/N calculation portion
     geom_transit_status = np.where(np.isnan(sn), 0, 1)
 
@@ -280,8 +284,6 @@ def calculate_transit_vectorized(P, star_radius, planet_radius, e, incl, omega, 
     # actually, replace all probabilities under 5% with 5% to avoid over-penalizing models which terminate at 0% too early
     prob_detection = np.where(prob_detection > 1, 1, prob_detection) # replace probs > 1 with just 1
     prob_detections.append(prob_detection)
-    #print(prob_detections)
-    #quit()
 
     # sample transit status and multiplicity based on Fressin detection probability
     #transit_status = [ts1_elt * ts2_elt for ts1_elt, ts2_elt in zip(ts1, ts2)]
@@ -508,7 +510,8 @@ def model_vectorized(df, model_flag, cube):
         # draw eccentricity
         if (model_flag=='limbach-hybrid') | (model_flag=='limbach'):
             # for drawing eccentricities using Limbach & Turner 2014 CDFs relating e to multiplicity
-            limbach = pd.read_csv(input_path+'limbach_cdfs.txt', engine='python', header=0, sep='\s{2,20}') # space-agnostic separator
+            #limbach = pd.read_csv(input_path+'limbach_cdfs.txt', engine='python', header=0, sep='\s{2,20}') # space-agnostic separator
+            limbach = pd.read_csv(path+'data/limbach_cdfs.txt', engine='python', header=0, sep='\s{2,20}') # space-agnostic separator
             df['ecc'] = df.num_planets.apply(lambda x: draw_eccentricity_van_eylen_vectorized(model_flag, x, limbach))
         else:
             df['ecc'] = df.num_planets.apply(lambda x: draw_eccentricity_van_eylen_vectorized(model_flag, x))

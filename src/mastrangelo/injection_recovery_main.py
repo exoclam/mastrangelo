@@ -160,6 +160,11 @@ def main_recovery(cube, ndim, nparams):
 					'iso_age', 'iso_age_err1', 'iso_age_err2', 'logR','is_giant','fractional_err1','fractional_err2','prob_intact','midplanes',
 					'intact_flag','sigma','num_planets','P','incl','mutual_incl','ecc','omega','lambda_ks','second_terms','geom_transit_status','transit_status',
 					'prob_detections','sn']]
+			
+			### DEBUG CALCULATE_SN_VECTORIZED()
+			geom_sum = len(berger_kepler_planets.loc[berger_kepler_planets.geom_transit_status == 1])
+			detected_sum = len(berger_kepler_planets.loc[berger_kepler_planets.transit_status == 1])
+
 			berger_kepler_planets.to_csv(output_filename)
 		else:
 			pass
