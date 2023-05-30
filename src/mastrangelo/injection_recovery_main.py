@@ -107,35 +107,50 @@ def main_ground_truth(cube, ndim, nparams):
 	- nparams: number of parameters, will be 4 instead of 3 for pymultinest
 	"""
 
-	# ad hoc logic bc HPG ran out of memory and I don't want to redo already-finished simulations
-	#done = glob(path+'simulations2/limbach-hybrid/transits*')
+	### ad hoc logic bc HPG ran out of memory and I don't want to redo already-finished simulations
+	done = glob(path+'systems/transits*')
 
+	### trivial case of no sculpting
+	#output_filename = output_path + 'systems/transits0_0_0_' + str(i) + '.csv'
+	output_filename = path + 'systems/transits0_0_0_' + str(i) + '.csv'
+	if output_filename not in done:
+		berger_kepler_planets = model_vectorized(berger_kepler, 'limbach-hybrid', cube)
+		berger_kepler_planets = berger_kepler_planets[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
+				'iso_age', 'iso_age_err1', 'iso_age_err2', 'logR','is_giant','fractional_err1','fractional_err2','prob_intact','midplanes',
+				'intact_flag','sigma','num_planets','P','incl','mutual_incl','ecc','omega','lambda_ks','second_terms','geom_transit_status','transit_status',
+				'prob_detections','sn']]
+		
+		berger_kepler_planets.to_csv(output_filename)
+	
+	else:
+		pass
+	
+	# other models
 	for gi_m in range(3):
-		for gi_b in tqdm(range(3)):
-			for gi_c in range(3):
+		for gi_b in range(2):
+
+			# increment to account for trivial case already being run
+			gi_b = gi_b + 1 
+
+			for gi_c in tqdm(range(3)):
 				
 				# fetch hyperparams
 				cube = prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c)
 
-				# if cutoff occurs more than once after probability has reached zero or if m==0, don't do redundant sims
-				#flag = redundancy_check(cube[0], cube[1], cube[2])
-				flag = True
-				if flag==False: # do one more simulation, then exit cutoff range
-					for i in range(1):
-						output_filename = '/blue/sarahballard/c.lam/sculpting2/simulations2/limbach-hybrid/transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'_'+str(i)+'.csv'
-						if output_filename not in done: # only run if simulation is not yet done
-							berger_kepler_planets = model_van_eylen(berger_kepler.iso_age, berger_kepler, 'limbach-hybrid', cube)
-							berger_kepler_planets.to_csv(output_filename)
-					break 
+				# generate filename
+				output_filename = path + 'systems/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
+
+				if output_filename not in done:
+					berger_kepler_planets = model_vectorized(berger_kepler, 'limbach-hybrid', cube)
+					berger_kepler_planets = berger_kepler_planets[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
+							'iso_age', 'iso_age_err1', 'iso_age_err2', 'logR','is_giant','fractional_err1','fractional_err2','prob_intact','midplanes',
+							'intact_flag','sigma','num_planets','P','incl','mutual_incl','ecc','omega','lambda_ks','second_terms','geom_transit_status','transit_status',
+							'prob_detections','sn']]
+			
+					berger_kepler_planets.to_csv(output_filename)
+	
 				else:
-					for i in range(1):
-						output_filename = path + 'systems/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
-						berger_kepler_planets = model_vectorized(berger_kepler, 'limbach-hybrid', cube)
-						berger_kepler_planets = berger_kepler_planets[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
-						     'iso_age', 'iso_age_err1', 'iso_age_err2', 'logR','is_giant','fractional_err1','fractional_err2','prob_intact','midplanes',
-							 'intact_flag','sigma','num_planets','P','incl','mutual_incl','ecc','omega','lambda_ks','second_terms','transit_status',
-							 'prob_detections','sn']]
-						berger_kepler_planets.to_csv(output_filename)
+					pass
 
 	return
 
@@ -161,7 +176,6 @@ def main_recovery(cube, ndim, nparams):
 					'intact_flag','sigma','num_planets','P','incl','mutual_incl','ecc','omega','lambda_ks','second_terms','geom_transit_status','transit_status',
 					'prob_detections','sn']]
 			
-			### DEBUG CALCULATE_SN_VECTORIZED()
 			geom_sum = len(berger_kepler_planets.loc[berger_kepler_planets.geom_transit_status == 1])
 			detected_sum = len(berger_kepler_planets.loc[berger_kepler_planets.transit_status == 1])
 
@@ -216,4 +230,4 @@ print("elapsed non-vectorized: ", end-start)
 # it was 171 seconds, or about 6 times slower 
 """
 
-main_recovery(cube, ndim, nparams)
+main_ground_truth(cube, ndim, nparams)
