@@ -459,8 +459,22 @@ def model_direct_draw(cube):
     geom_lam = geom_lam.to_list()
     return lam, geom_lam, transits, intact_fractions, amds, eccentricities, inclinations_degrees
 
-def model_vectorized(df, model_flag, cube):
+def model_vectorized(df, model_flag, cube, bootstrap=False):
 
+    """
+    Generate planetary systems. 
+
+    Inputs:
+    - df: DataFrame with Berger crossmatch
+    - model_flag: whether to draw eccentricity and inclination from Limbach or some other distribution
+    - cube: tuple indicating the sculpting law 
+    - bootstrap: do we draw probability of intactness based on iso_age (no bootstrap) or age (bootstrap)
+
+    Output:
+    - DataFrame with new columns about planetary system
+
+    """
+    
     debug = False
 
     if len(cube)==3: # ie. if we're applying f post-hoc, in order to avoid sampling in 4 dimensions
@@ -472,7 +486,7 @@ def model_vectorized(df, model_flag, cube):
         m_planet = 5. # Earth masses; from Chen & Kipping 2016
 
         # assign intact probability to each star
-        df = compute_prob_vectorized(df, m, b, cutoff) # pass in whole df instead of df.iso_age; return df with new column: prob_intact
+        df = compute_prob_vectorized(df, m, b, cutoff, bootstrap) # pass in whole df instead of df.iso_age; return df with new column: prob_intact
         #print(len(df.loc[df.iso_age > 2])) 
         #print(len(df.loc[np.round(df['prob_intact'], 3)==0.140])) # should be same as above, where fraction changes depending on age vs cutoff
 
@@ -603,7 +617,7 @@ def model_vectorized(df, model_flag, cube):
         m_planet = 5. # Earth masses; from Chen & Kipping 2016
 
         # assign intact probability to each star
-        df = compute_prob_vectorized(df, m, b, cutoff) # pass in whole df instead of df.iso_age; return df with new column: prob_intact
+        df = compute_prob_vectorized(df, m, b, cutoff, bootstrap) # pass in whole df instead of df.iso_age; return df with new column: prob_intact
         #print(len(df.loc[df.iso_age > 2])) 
         #print(len(df.loc[np.round(df['prob_intact'], 3)==0.140])) # should be same as above, where fraction changes depending on age vs cutoff
 

@@ -78,7 +78,7 @@ def compute_prob(x, m, b, cutoff): # adapted from Ballard et al in prep, log ver
             
     return y
 
-def compute_prob_vectorized(df, m, b, cutoff): # adapted from Ballard et al in prep, log version
+def compute_prob_vectorized(df, m, b, cutoff, bootstrap): # adapted from Ballard et al in prep, log version
     """ 
     Calculate the probability of system being intact vs disrupted, based on its age and the sculpting law.
 
@@ -87,15 +87,22 @@ def compute_prob_vectorized(df, m, b, cutoff): # adapted from Ballard et al in p
     - m: sculpting law slope [dex]
     - b: sculpting law initial intact probability
     - cutoff: sculpting law turnoff time [yrs]
+    - bootstrap: do we draw probability of intactness based on iso_age (no bootstrap) or age (bootstrap)
 
     Output:
     - df: same as input, but with new column called prob_intact
 
     """
 
-    df['prob_intact'] = np.where(
-            ((df['iso_age']*1e9 > 1e8) & (df['iso_age']*1e9 <= cutoff)), b+m*(np.log10(df['iso_age'])-8), np.where(
-                df['iso_age']*1e9 > cutoff, b+m*(np.log10(cutoff)-8), b))
+    if bootstrap == False:
+        df['prob_intact'] = np.where(
+                ((df['iso_age']*1e9 > 1e8) & (df['iso_age']*1e9 <= cutoff)), b+m*(np.log10(df['iso_age'])-8), np.where(
+                    df['iso_age']*1e9 > cutoff, b+m*(np.log10(cutoff)-8), b))
+
+    elif bootstrap == True:
+        df['prob_intact'] = np.where(
+                ((df['age']*1e9 > 1e8) & (df['age']*1e9 <= cutoff)), b+m*(np.log10(df['age'])-8), np.where(
+                    df['age']*1e9 > cutoff, b+m*(np.log10(cutoff)-8), b))
 
     # handle impossible probabilities
     df['prob_intact'] = np.where(

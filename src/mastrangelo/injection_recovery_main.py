@@ -110,9 +110,10 @@ def main_ground_truth(cube, ndim, nparams):
 	### ad hoc logic bc HPG ran out of memory and I don't want to redo already-finished simulations
 	done = glob(path+'systems/transits*')
 
+	cube = prior_grid_logslope(cube, ndim, nparams, 0, 0, 0)
+
 	### trivial case of no sculpting
-	#output_filename = output_path + 'systems/transits0_0_0_' + str(i) + '.csv'
-	output_filename = path + 'systems/transits0_0_0_' + str(i) + '.csv'
+	output_filename = path + 'systems/transits0_0_0_0.csv'
 	if output_filename not in done:
 		berger_kepler_planets = model_vectorized(berger_kepler, 'limbach-hybrid', cube)
 		berger_kepler_planets = berger_kepler_planets[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
@@ -138,7 +139,7 @@ def main_ground_truth(cube, ndim, nparams):
 				cube = prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c)
 
 				# generate filename
-				output_filename = path + 'systems/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
+				output_filename = path + 'systems/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '.csv'
 
 				if output_filename not in done:
 					berger_kepler_planets = model_vectorized(berger_kepler, 'limbach-hybrid', cube)
