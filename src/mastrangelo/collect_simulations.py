@@ -15,7 +15,7 @@ from itertools import zip_longest
 import numpy.ma as ma # for masked arrays
 
 input_path = '/blue/sarahballard/c.lam/sculpting2/' # HPG
-output_path = '/blue/sarahballard/c.lam/sculpting2/mastrangelo' # HPG
+output_path = '/blue/sarahballard/c.lam/sculpting2/mastrangelo/' # HPG
 path = '/Users/chris/Desktop/mastrangelo/' # new computer has different username
 berger_kepler = pd.read_csv(path+'data/berger_kepler_stellar_fgk.csv') # crossmatched with Gaia via Bedell
 
@@ -23,6 +23,7 @@ berger_kepler = pd.read_csv(path+'data/berger_kepler_stellar_fgk.csv') # crossma
 berger_kepler = berger_kepler[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
 						     'iso_age', 'iso_age_err1', 'iso_age_err2']]
 
+# ground truth from Kepler observed transit multiplicity
 #pnum = pd.read_csv(path+'data/pnum_plus_cands_fgk.csv') # planet hosts among crossmatched Berger sample
 #k = pnum.groupby('kepid').count().koi_count.reset_index().groupby('koi_count').count()
 k = pd.Series([833, 134, 38, 15, 5, 0])
@@ -49,6 +50,7 @@ def prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c):
 	#cube[2] = np.logspace(1e8,1e10,11)
 	cube[2] = np.logspace(8,10,3)[gi_c] # in Ballard et al in prep, they use log(yrs) instead of drawing yrs from logspace
 	return cube
+
 
 def better_loglike(lam, k):
 	"""
@@ -79,24 +81,81 @@ def better_loglike(lam, k):
 	return np.sum(logL)
 
 
-# group file names by {m, b, cutoff} simulation
-# note that some will be empty because I skip over them due to redundancy check from simulate_main.py
+def collect(df, f, transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs):
+	
+	"""
+	Compute geometric and detected transit multiplicities, intact/disrupted fractions, and log likelihood.
+
+	Inputs: 
+	- df: read-in DataFrames of the simulated planetary system products of injection_recovery_main.py
+	- f: fraction of planet-hosting stars
+	- transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs: future columns in CSV output of collect_simulations.py
+
+	Outputs:
+	- transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs: see description in Inputs
+
+	"""
+	
+	# isolate transiting planets
+	transiters_berger_kepler = df.loc[df['transit_status']==1]
+
+	# compute transit multiplicity and save off the original transit multiplicity (pre-frac)
+	transit_multiplicity = f * transiters_berger_kepler.groupby('kepid').count()['transit_status'].reset_index().groupby('transit_status').count().reset_index().kepid
+	transit_multiplicities.append(list(transit_multiplicity))
+
+	# also calculate the geometric transit multiplicity
+	geom_transiters_berger_kepler = df.loc[df['geom_transit_status']==1]
+	geom_transit_multiplicity = f * geom_transiters_berger_kepler.groupby('kepid').count()['transit_status'].reset_index().groupby('transit_status').count().reset_index().kepid
+	geom_transit_multiplicities.append(list(geom_transit_multiplicity))
+
+	# calculate logLs 
+	logL = better_loglike(transit_multiplicity, k)
+	logLs.append(logL)
+
+	# get intact and disrupted fractions (combine them later to get fraction of systems w/o planets)
+	intact = df.loc[df.intact_flag=='intact']
+	disrupted = df.loc[df.intact_flag=='disrupted']
+	intact_frac = f*len(intact)/len(df)
+	disrupted_frac = f*len(disrupted)/len(df)
+	intact_fracs.append(intact_frac)
+	disrupted_fracs.append(disrupted_frac)
+
+	return transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs
+
+
 sims = []
 ms = []
 bs = []
 cs = []
 fs = []
-max_logLs = []
-min_logLs = []
-mean_logLs = []
-median_logLs = []
-std_logLs = []
-transit_multiplicities_all = []
-geom_transit_multiplicities_all = []
-intact_fracs_all = []
-disrupted_fracs_all = []
+
 start = datetime.now()
-print("start: ", start)
+#print("start: ", start)
+
+sim = glob(path+'systems-recovery/transits0_0_0_0.csv')
+cube = prior_grid_logslope(cube, ndim, nparams, 0, 0, 0)
+transit_multiplicities = []
+geom_transit_multiplicities = []
+intact_fracs = []
+disrupted_fracs = []
+logLs = []
+
+output = pd.DataFrame()
+
+# cycle through different fractions of systems with planets
+for f in np.linspace(0.1, 1, 10):
+
+	for i in range(len(sim)):
+
+		ms.append(cube[0])
+		bs.append(cube[1])
+		cs.append(cube[2])
+		fs.append(f)
+					
+		df = pd.read_csv(sim[i], delimiter=',', on_bad_lines='skip')
+
+		# populate future columns for output DataFrame
+		transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs = collect(df, f, transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs)
 
 for gi_m in range(3):
 
@@ -108,83 +167,39 @@ for gi_m in range(3):
 			#print(gi_m, gi_b, gi_c) # so I know where I am
 
 			try:
-				sim = glob(path+'systems-recovery/transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'_'+'*')
+				sim = glob(path+'systems-recovery/transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
 			except:
+				print("failed at: ", 'transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
 				continue # if no file found, skip to next iteration 
 
 			cube = prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c)
-
+			
 			# cycle through different fractions of systems with planets
-			for f in np.linspace(0.1, 1, 10):
-				ms.append(cube[0])
-				bs.append(cube[1])
-				cs.append(cube[2])
-				fs.append(f)
-
-				logLs = []
-				transit_multiplicities = []
-				geom_transit_multiplicities = []
-				intact_fracs = []
-				disrupted_fracs = []
-
-				lam_upper = []
-				lam_lower = []
-				lam_avgs = []
-	
-				for i in range(len(sim)):
-					#df = pd.read_csv(sim[i], delimiter=',', names=list(range(150))) # handle the few rows of different lengths; most are 150
-					#new_header = df.iloc[0] #grab the first row for the header
-					#df = df[1:] #take the data less the header row
-					#df.columns = new_header #set the header row as the df header
-					df = pd.read_csv(sim[i], delimiter=',')
-
-					# isolate transiting planets
-					transiters_berger_kepler = df.loc[df['transit_status']==1]
-
-					# compute transit multiplicity and save off the original transit multiplicity (pre-frac)
-					transit_multiplicity = f * transiters_berger_kepler.groupby('kepid').count()['transit_status'].reset_index().groupby('transit_status').count().reset_index().kepid
-					transit_multiplicities.append(list(transit_multiplicity))
-
-					# also calculate the geometric transit multiplicity
-					geom_transiters_berger_kepler = df.loc[df['geom_transit_status']==1]
-					geom_transit_multiplicity = f * geom_transiters_berger_kepler.groupby('kepid').count()['transit_status'].reset_index().groupby('transit_status').count().reset_index().kepid
-					geom_transit_multiplicities.append(list(geom_transit_multiplicity))
-
-					# calculate logLs 
-					logL = better_loglike(transit_multiplicity, k)
-					logLs.append(logL)
-
-					# get intact and disrupted fractions (combine them later to get fraction of systems w/o planets)
-					intact = df.loc[df.intact_flag=='intact']
-					disrupted = df.loc[df.intact_flag=='disrupted']
-					intact_frac = f*len(intact)/len(df)
-					disrupted_frac = f*len(disrupted)/len(df)
-					intact_fracs.append(intact_frac)
-					disrupted_fracs.append(disrupted_frac)
-
-				transit_multiplicities_all.append(transit_multiplicities)
-				geom_transit_multiplicities_all.append(geom_transit_multiplicities)
-				intact_fracs_all.append(intact_fracs)
-				disrupted_fracs_all.append(disrupted_fracs)
+			for f in np.round(np.linspace(0.1, 1, 10), 1):
 				
-				"""
-				try:
-					max_logLs.append(max(logLs))
-					min_logLs.append(min(logLs))
-					mean_logLs.append(np.mean(logLs))
-					std_logLs.append(np.std(logLs))
-					median_logLs.append(np.median(logLs))
+				for i in range(len(sim)):
+					#print("hi: ", gi_m, gi_b, gi_c, cube[0], cube[1], cube[2])
+					ms.append(cube[0])
+					bs.append(cube[1])
+					cs.append(cube[2])
+					fs.append(f)
 
-				except: # sometimes logLs will be empty where a redundancy check was passed for some hyperparam tuple
-					max_logLs.append([])
-					min_logLs.append([])
-					mean_logLs.append([])
-					std_logLs.append([])
-					median_logLs.append([])
-				"""
+					df = pd.read_csv(sim[i], sep=',', on_bad_lines='skip')
 
-end = datetime.now()
-print("TIME ELAPSED: ", end-start)
+					# populate future columns for output DataFrame
+					transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs = collect(df, f, transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs)
+
+#end = datetime.now()
+#print("TIME ELAPSED: ", end-start)
+
+df_logL = pd.DataFrame({'ms': ms, 'bs': bs, 'cs': cs, 'fs': fs, 
+	'transit_multiplicities': transit_multiplicities, 'geom_transit_multiplicities': geom_transit_multiplicities, 'logLs': logLs, 
+	'intact_fracs': intact_fracs, 'disrupted_fracs': disrupted_fracs})
+print(df_logL)
+
+df_logL.to_csv(path+'collect_recovery.csv', index=False)
+
+quit()
 
 # calculate max/min envelopes for both multiplicities
 lam_elt_max = []

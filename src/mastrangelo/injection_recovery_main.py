@@ -121,7 +121,7 @@ def main_ground_truth(cube, ndim, nparams):
 				'intact_flag','sigma','num_planets','P','incl','mutual_incl','ecc','omega','lambda_ks','second_terms','geom_transit_status','transit_status',
 				'prob_detections','sn']]
 		
-		berger_kepler_planets.to_csv(output_filename)
+		berger_kepler_planets.to_csv(output_filename, sep='\t')
 	
 	else:
 		pass
@@ -148,7 +148,7 @@ def main_ground_truth(cube, ndim, nparams):
 							'intact_flag','sigma','num_planets','P','incl','mutual_incl','ecc','omega','lambda_ks','second_terms','geom_transit_status','transit_status',
 							'prob_detections','sn']]
 			
-					berger_kepler_planets.to_csv(output_filename)
+					berger_kepler_planets.to_csv(output_filename, sep='\t')
 	
 				else:
 					pass
@@ -213,6 +213,7 @@ def main_recovery(cube, ndim, nparams):
 						pass
 
 	return
+
 
 """
 VECTORIZATION SPEED TEST
