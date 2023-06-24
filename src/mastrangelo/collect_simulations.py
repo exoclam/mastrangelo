@@ -101,11 +101,13 @@ def collect(df, f, transit_multiplicities, geom_transit_multiplicities, intact_f
 
 	# compute transit multiplicity and save off the original transit multiplicity (pre-frac)
 	transit_multiplicity = f * transiters_berger_kepler.groupby('kepid').count()['transit_status'].reset_index().groupby('transit_status').count().reset_index().kepid
+	transit_multiplicity += [0.] * (6 - len(transit_multiplicity)) # pad with zeros to match length of k
 	transit_multiplicities.append(list(transit_multiplicity))
 
 	# also calculate the geometric transit multiplicity
 	geom_transiters_berger_kepler = df.loc[df['geom_transit_status']==1]
 	geom_transit_multiplicity = f * geom_transiters_berger_kepler.groupby('kepid').count()['transit_status'].reset_index().groupby('transit_status').count().reset_index().kepid
+	geom_transit_multiplicity += [0.] * (6 - len(geom_transit_multiplicity)) # pad with zeros to match length of k
 	geom_transit_multiplicities.append(list(geom_transit_multiplicity))
 
 	# calculate logLs 
