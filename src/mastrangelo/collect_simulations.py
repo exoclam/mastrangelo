@@ -81,10 +81,74 @@ def better_loglike(lam, k):
 	return np.sum(logL)
 
 
+def normal_loglike(x, mu, sigma):
+	"""
+	Calculate Gaussian log likelihood
+	lnp(x) = -0.5 * ((x-mu)/sigma)**2 - ln(sigma * sqrt(2*pi))
+	Inputs: 
+	- x: data
+	- mu: mean of the random variable
+	- sigma: standard deviation of the random variable
+
+	Returns: Normal log likelihood (float)
+	"""
+
+	term1 = -0.5 * ((x-mu)/sigma)**2
+	term2 = np.log(sigma * np.sqrt(2*np.pi))
+	logL = term1 - term2
+
+	return logL
+
+
 def collect(df, f, transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs):
 	
 	"""
 	Compute geometric and detected transit multiplicities, intact/disrupted fractions, and log likelihood.
+
+	Inputs: 
+	- df: read-in DataFrames of the simulated planetary system products of injection_recovery_main.py
+	- f: fraction of planet-hosting stars
+	- transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs: future columns in CSV output of collect_simulations.py
+
+	Outputs:
+	- transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs: see description in Inputs
+
+	"""
+	
+	# isolate transiting planets
+	transiters_berger_kepler = df.loc[df['transit_status']==1]
+
+	# compute transit multiplicity and save off the original transit multiplicity (pre-frac)
+	transit_multiplicity = f * transiters_berger_kepler.groupby('kepid').count()['transit_status'].reset_index().groupby('transit_status').count().reset_index().kepid
+	transit_multiplicity += [0.] * (6 - len(transit_multiplicity)) # pad with zeros to match length of k
+	transit_multiplicities.append(list(transit_multiplicity))
+
+	# also calculate the geometric transit multiplicity
+	geom_transiters_berger_kepler = df.loc[df['geom_transit_status']==1]
+	geom_transit_multiplicity = f * geom_transiters_berger_kepler.groupby('kepid').count()['transit_status'].reset_index().groupby('transit_status').count().reset_index().kepid
+	geom_transit_multiplicity += [0.] * (6 - len(geom_transit_multiplicity)) # pad with zeros to match length of k
+	geom_transit_multiplicities.append(list(geom_transit_multiplicity))
+
+	# calculate logLs 
+	logL = better_loglike(transit_multiplicity, k)
+	logLs.append(logL)
+
+	# get intact and disrupted fractions (combine them later to get fraction of systems w/o planets)
+	intact = df.loc[df.intact_flag=='intact']
+	disrupted = df.loc[df.intact_flag=='disrupted']
+	intact_frac = f*len(intact)/len(df)
+	disrupted_frac = f*len(disrupted)/len(df)
+	intact_fracs.append(intact_frac)
+	disrupted_fracs.append(disrupted_frac)
+
+	return transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs
+
+
+def collect2(df, f, transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs):
+	
+	"""
+	Compute geometric and detected transit multiplicities, intact/disrupted fractions, and log likelihood.
+	However, transit multiplicities are capped at 3+, and logLs are calculated to fit to the age of a system as a function of multiplicity.
 
 	Inputs: 
 	- df: read-in DataFrames of the simulated planetary system products of injection_recovery_main.py
