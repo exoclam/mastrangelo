@@ -48,7 +48,7 @@ def prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c):
 	cube[0] = np.linspace(-2,0,3)[gi_m] 
 	cube[1] = np.linspace(0,1,3)[gi_b]
 	#cube[2] = np.logspace(1e8,1e10,11)
-	cube[2] = np.logspace(8,10,3)[gi_c] # in Ballard et al in prep, they use log(yrs) instead of drawing yrs from logspace
+	cube[2] = np.logspace(8,10,11)[gi_c] # in Ballard et al in prep, they use log(yrs) instead of drawing yrs from logspace
 	return cube
 
 
@@ -204,7 +204,7 @@ fs = []
 start = datetime.now()
 #print("start: ", start)
 
-sim = glob(output_path+'systems/transits0_0_0_0.csv')
+sim = glob(output_path+'systems-recovery/transits0_0_0_0.csv')
 cube = prior_grid_logslope(cube, ndim, nparams, 0, 0, 0)
 transit_multiplicities = []
 geom_transit_multiplicities = []
@@ -224,7 +224,7 @@ for f in np.linspace(0.1, 1, 10):
 		cs.append(cube[2])
 		fs.append(f)
 					
-		df = pd.read_csv(sim[i], delimiter=',', on_bad_lines='skip')
+		df = pd.read_csv(sim[i], sep=',', on_bad_lines='skip')
 
 		# populate future columns for output DataFrame
 		transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs = collect(df, f, transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs)
@@ -235,13 +235,13 @@ for gi_m in range(3):
 		
 		gi_b = gi_b + 1
 
-		for gi_c in range(3):
+		for gi_c in range(11):
 			print(gi_m, gi_b, gi_c) # so I know where I am
 
 			try:
-				sim = glob(output_path+'systems/transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
+				sim = glob(output_path+'systems-recovery/transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
 			except:
-				print("failed at: ", 'transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
+				print("file not found: ", 'transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
 				continue # if no file found, skip to next iteration 
 
 			cube = prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c)
@@ -269,7 +269,7 @@ df_logL = pd.DataFrame({'ms': ms, 'bs': bs, 'cs': cs, 'fs': fs,
 	'intact_fracs': intact_fracs, 'disrupted_fracs': disrupted_fracs})
 print(df_logL)
 
-df_logL.to_csv(output_path+'collect_ground_truth.csv', index=False)
+df_logL.to_csv(output_path+'collect_recovery.csv', index=False)
 
 quit()
 
