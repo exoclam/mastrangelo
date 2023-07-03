@@ -17,11 +17,11 @@ import numpy.ma as ma # for masked arrays
 input_path = '/blue/sarahballard/c.lam/sculpting2/' # HPG
 output_path = '/blue/sarahballard/c.lam/sculpting2/mastrangelo/' # HPG
 path = '/Users/chris/Desktop/mastrangelo/' # new computer has different username
-berger_kepler = pd.read_csv(path+'data/berger_kepler_stellar_fgk.csv') # crossmatched with Gaia via Bedell
+#berger_kepler = pd.read_csv(input_path+'data/berger_kepler_stellar_fgk.csv') # crossmatched with Gaia via Bedell
 
 # make berger_kepler more wieldy
-berger_kepler = berger_kepler[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
-						     'iso_age', 'iso_age_err1', 'iso_age_err2']]
+#berger_kepler = berger_kepler[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
+#						     'iso_age', 'iso_age_err1', 'iso_age_err2']]
 
 # ground truth from Kepler observed transit multiplicity
 #pnum = pd.read_csv(path+'data/pnum_plus_cands_fgk.csv') # planet hosts among crossmatched Berger sample
@@ -120,14 +120,20 @@ def collect(df, f, transit_multiplicities, geom_transit_multiplicities, intact_f
 
 	# compute transit multiplicity and save off the original transit multiplicity (pre-frac)
 	transit_multiplicity = f * transiters_berger_kepler.groupby('kepid').count()['transit_status'].reset_index().groupby('transit_status').count().reset_index().kepid
-	transit_multiplicity += [0.] * (6 - len(transit_multiplicity)) # pad with zeros to match length of k
-	transit_multiplicities.append(list(transit_multiplicity))
+	transit_multiplicity = transit_multiplicity.to_list()
+	try:
+		transit_multiplicity += [0.] * (6 - len(transit_multiplicity)) # pad with zeros to match length of k
+	except:
+		print(transit_multiplicity.to_list())
+
+	transit_multiplicities.append(transit_multiplicity)
 
 	# also calculate the geometric transit multiplicity
 	geom_transiters_berger_kepler = df.loc[df['geom_transit_status']==1]
 	geom_transit_multiplicity = f * geom_transiters_berger_kepler.groupby('kepid').count()['transit_status'].reset_index().groupby('transit_status').count().reset_index().kepid
+	geom_transit_multiplicity = geom_transit_multiplicity.to_list()
 	geom_transit_multiplicity += [0.] * (6 - len(geom_transit_multiplicity)) # pad with zeros to match length of k
-	geom_transit_multiplicities.append(list(geom_transit_multiplicity))
+	geom_transit_multiplicities.append(geom_transit_multiplicity)
 
 	# calculate logLs 
 	logL = better_loglike(transit_multiplicity, k)
@@ -198,7 +204,7 @@ fs = []
 start = datetime.now()
 #print("start: ", start)
 
-sim = glob(path+'systems-recovery/transits0_0_0_0.csv')
+sim = glob(output_path+'systems/transits0_0_0_0.csv')
 cube = prior_grid_logslope(cube, ndim, nparams, 0, 0, 0)
 transit_multiplicities = []
 geom_transit_multiplicities = []
@@ -230,10 +236,10 @@ for gi_m in range(3):
 		gi_b = gi_b + 1
 
 		for gi_c in range(3):
-			#print(gi_m, gi_b, gi_c) # so I know where I am
+			print(gi_m, gi_b, gi_c) # so I know where I am
 
 			try:
-				sim = glob(path+'systems-recovery/transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
+				sim = glob(output_path+'systems/transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
 			except:
 				print("failed at: ", 'transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
 				continue # if no file found, skip to next iteration 
@@ -263,7 +269,7 @@ df_logL = pd.DataFrame({'ms': ms, 'bs': bs, 'cs': cs, 'fs': fs,
 	'intact_fracs': intact_fracs, 'disrupted_fracs': disrupted_fracs})
 print(df_logL)
 
-df_logL.to_csv(path+'collect_recovery.csv', index=False)
+df_logL.to_csv(output_path+'collect_ground_truth.csv', index=False)
 
 quit()
 

@@ -23,11 +23,11 @@ import matplotlib.pyplot as plt
 from simulate_transit import * 
 from simulate_helpers import *
 
-#input_path = '/blue/sarahballard/c.lam/sculpting2/' # HPG
-#output_path = '/blue/sarahballard/c.lam/sculpting2/mastrangelo/' # HPG
-path = '/Users/chris/Desktop/mastrangelo/' # new computer has different username
-berger_kepler = pd.read_csv(path+'data/berger_kepler_stellar_fgk.csv') # crossmatched with Gaia via Bedell
-#berger_kepler = pd.read_csv(input_path+'berger_kepler_stellar_fgk.csv') # crossmatched with Gaia via Bedell
+input_path = '/blue/sarahballard/c.lam/sculpting2/' # HPG
+output_path = '/blue/sarahballard/c.lam/sculpting2/mastrangelo/' # HPG
+#path = '/Users/chris/Desktop/mastrangelo/' # new computer has different username
+#berger_kepler = pd.read_csv(path+'data/berger_kepler_stellar_fgk.csv') # crossmatched with Gaia via Bedell
+berger_kepler = pd.read_csv(input_path+'berger_kepler_stellar_fgk.csv') # crossmatched with Gaia via Bedell
 
 # make berger_kepler more wieldy
 berger_kepler = berger_kepler[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
@@ -58,7 +58,7 @@ def prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c):
 	cube[0] = np.linspace(-2,0,3)[gi_m] 
 	cube[1] = np.linspace(0,1,3)[gi_b]
 	#cube[2] = np.logspace(1e8,1e10,11)
-	cube[2] = np.logspace(8,10,3)[gi_c] # in Ballard et al in prep, they use log(yrs) instead of drawing yrs from logspace
+	cube[2] = np.logspace(8,10,11)[gi_c] # in Ballard et al in prep, they use log(yrs) instead of drawing yrs from logspace
 	return cube
 
 
@@ -112,6 +112,7 @@ def main_ground_truth(cube, ndim, nparams):
 
 	cube = prior_grid_logslope(cube, ndim, nparams, 0, 0, 0)
 
+	"""
 	### trivial case of no sculpting
 	output_filename = path + 'systems/transits0_0_0_0.csv'
 	if output_filename not in done:
@@ -125,6 +126,7 @@ def main_ground_truth(cube, ndim, nparams):
 	
 	else:
 		pass
+	"""
 	
 	# other models
 	for gi_m in range(3):
@@ -133,25 +135,26 @@ def main_ground_truth(cube, ndim, nparams):
 			# increment to account for trivial case already being run
 			gi_b = gi_b + 1 
 
-			for gi_c in tqdm(range(3)):
-				
-				# fetch hyperparams
-				cube = prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c)
+			#for gi_c in tqdm(range(3)): THIS IS JUST TO INCLUDE THE 4 GYR CUTOFF MODELS TO THE INJECTION RECOVERY TEST
+			gi_c = 8
 
-				# generate filename
-				output_filename = path + 'systems/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '.csv'
+			# fetch hyperparams
+			cube = prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c)
 
-				if output_filename not in done:
-					berger_kepler_planets = model_vectorized(berger_kepler, 'limbach-hybrid', cube)
-					berger_kepler_planets = berger_kepler_planets[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
-							'iso_age', 'iso_age_err1', 'iso_age_err2', 'logR','is_giant','fractional_err1','fractional_err2','prob_intact','midplanes',
-							'intact_flag','sigma','num_planets','P','incl','mutual_incl','ecc','omega','lambda_ks','second_terms','geom_transit_status','transit_status',
-							'prob_detections','sn']]
-			
-					berger_kepler_planets.to_csv(output_filename, sep='\t')
-	
-				else:
-					pass
+			# generate filename
+			output_filename = output_path + 'systems/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '.csv'
+
+			if output_filename not in done:
+				berger_kepler_planets = model_vectorized(berger_kepler, 'limbach-hybrid', cube)
+				berger_kepler_planets = berger_kepler_planets[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
+						'iso_age', 'iso_age_err1', 'iso_age_err2', 'logR','is_giant','fractional_err1','fractional_err2','prob_intact','midplanes',
+						'intact_flag','sigma','num_planets','P','incl','mutual_incl','ecc','omega','lambda_ks','second_terms','geom_transit_status','transit_status',
+						'prob_detections','sn']]
+		
+				berger_kepler_planets.to_csv(output_filename, sep='\t')
+
+			else:
+				pass
 
 	return
 
@@ -165,7 +168,8 @@ def main_recovery(cube, ndim, nparams):
 	done = glob(path+'systems-recovery/transits*')
 
 	# do the trivial case of everybody is disrupted, just once
-	cube = prior_grid_logslope(cube, ndim, nparams, 0, 0, 0)
+	#cube = prior_grid_logslope(cube, ndim, nparams, 0, 0, 0)
+	"""
 	for i in range(30):
 		berger_kepler_temp = draw_star(berger_kepler)
 		#output_filename = output_path + 'systems-recovery/transits0_0_0_' + str(i) + '.csv'
@@ -183,7 +187,8 @@ def main_recovery(cube, ndim, nparams):
 			berger_kepler_planets.to_csv(output_filename)
 		else:
 			pass
-	
+	"""
+
 	# now do the rest
 	for gi_m in range(3):
 		for gi_b in range(2):
@@ -191,26 +196,27 @@ def main_recovery(cube, ndim, nparams):
 			# increment to account for trivial case already being run
 			gi_b = gi_b + 1 
 				
-			for gi_c in tqdm(range(3)):
+			# for gi_c in tqdm(range(3)): SAME DEAL FOR THE 4 GYR CUTOFF MODELS
+			gi_c = 8
 
-				# fetch hyperparams
-				cube = prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c)
+			# fetch hyperparams
+			cube = prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c)
 
-				for i in range(30):
-					berger_kepler_temp = draw_star(berger_kepler)
-					#output_filename = output_path + 'systems-recovery/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
-					output_filename = path + 'systems-recovery/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
-					if output_filename not in done:
+			for i in range(30):
+				berger_kepler_temp = draw_star(berger_kepler)
+				#output_filename = output_path + 'systems-recovery/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
+				output_filename = output_path + 'systems-recovery/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
+				if output_filename not in done:
 
-						berger_kepler_planets = model_vectorized(berger_kepler_temp, 'limbach-hybrid', cube)
-						berger_kepler_planets = berger_kepler_planets[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
-								'iso_age', 'iso_age_err1', 'iso_age_err2', 'logR','is_giant','fractional_err1','fractional_err2','prob_intact','midplanes',
-								'intact_flag','sigma','num_planets','P','incl','mutual_incl','ecc','omega','lambda_ks','second_terms','geom_transit_status','transit_status',
-								'prob_detections','sn']]
-						berger_kepler_planets.to_csv(output_filename)
+					berger_kepler_planets = model_vectorized(berger_kepler_temp, 'limbach-hybrid', cube)
+					berger_kepler_planets = berger_kepler_planets[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
+							'iso_age', 'iso_age_err1', 'iso_age_err2', 'logR','is_giant','fractional_err1','fractional_err2','prob_intact','midplanes',
+							'intact_flag','sigma','num_planets','P','incl','mutual_incl','ecc','omega','lambda_ks','second_terms','geom_transit_status','transit_status',
+							'prob_detections','sn']]
+					berger_kepler_planets.to_csv(output_filename)
 
-					else:
-						pass
+				else:
+					pass
 
 	return
 
