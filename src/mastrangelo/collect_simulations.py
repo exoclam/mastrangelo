@@ -64,6 +64,13 @@ def better_loglike(lam, k):
 	Returns: Poisson log likelihood (float)
 	"""
 
+	# in the rare occasion that a simulated system has 7+ planets, throw them into the 6+ bin
+	if len(k) < len(lam): 
+		extras = lam[len(k):]
+		sum_extras = np.sum(extras)
+		lam[5] += sum_extras
+	lam = lam[:6]
+
 	logL = []
 	for i in range(len(lam)):
 		if lam[i]==0:
