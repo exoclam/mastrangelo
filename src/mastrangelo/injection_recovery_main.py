@@ -195,27 +195,26 @@ def main_recovery(cube, ndim, nparams):
 			# increment to account for trivial case already being run
 			gi_b = gi_b + 1 
 				
-			# for gi_c in tqdm(range(3)): SAME DEAL FOR THE 4 GYR CUTOFF MODELS
-			gi_c = 8
+			for gi_c in tqdm(range(11)): 
 
-			# fetch hyperparams
-			cube = prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c)
+				# fetch hyperparams
+				cube = prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c)
 
-			for i in range(30):
-				berger_kepler_temp = draw_star(berger_kepler)
-				#output_filename = output_path + 'systems-recovery/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
-				output_filename = output_path + 'systems-recovery/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
-				if output_filename not in done:
+				for i in range(30):
+					berger_kepler_temp = draw_star(berger_kepler)
+					#output_filename = output_path + 'systems-recovery/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
+					output_filename = output_path + 'systems-recovery/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
+					if output_filename not in done:
 
-					berger_kepler_planets = model_vectorized(berger_kepler_temp, 'limbach-hybrid', cube)
-					berger_kepler_planets = berger_kepler_planets[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
-							'iso_age', 'iso_age_err1', 'iso_age_err2', 'logR','is_giant','fractional_err1','fractional_err2','prob_intact','midplanes',
-							'intact_flag','sigma','num_planets','P','incl','mutual_incl','ecc','omega','lambda_ks','second_terms','geom_transit_status','transit_status',
-							'prob_detections','sn']]
-					berger_kepler_planets.to_csv(output_filename)
+						berger_kepler_planets = model_vectorized(berger_kepler_temp, 'limbach-hybrid', cube)
+						berger_kepler_planets = berger_kepler_planets[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
+								'iso_age', 'iso_age_err1', 'iso_age_err2', 'logR','is_giant','fractional_err1','fractional_err2','prob_intact','midplanes',
+								'intact_flag','sigma','num_planets','P','incl','mutual_incl','ecc','omega','lambda_ks','second_terms','geom_transit_status','transit_status',
+								'prob_detections','sn']]
+						berger_kepler_planets.to_csv(output_filename)
 
-				else:
-					pass
+					else:
+						pass
 
 	return
 
@@ -237,4 +236,4 @@ print("elapsed non-vectorized: ", end-start)
 # it was 171 seconds, or about 6 times slower 
 """
 
-main_ground_truth(cube, ndim, nparams)
+main_recovery(cube, ndim, nparams)
