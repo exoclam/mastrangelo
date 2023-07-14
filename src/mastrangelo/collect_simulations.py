@@ -125,7 +125,7 @@ def collect(df, f, transit_multiplicities, geom_transit_multiplicities, intact_f
 	# isolate transiting planets
 	transiters_berger_kepler = df.loc[df['transit_status']==1]
 
-	# compute transit multiplicity and save off the original transit multiplicity (pre-frac)
+	# compute transit multiplicity 
 	transit_multiplicity = f * transiters_berger_kepler.groupby('kepid').count()['transit_status'].reset_index().groupby('transit_status').count().reset_index().kepid
 	transit_multiplicity = transit_multiplicity.to_list()
 	try:
@@ -157,49 +157,62 @@ def collect(df, f, transit_multiplicities, geom_transit_multiplicities, intact_f
 	return transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs
 
 
-def collect2(df, f, transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs):
+def collect_past_ii(df, f):
 	
 	"""
-	Compute geometric and detected transit multiplicities, intact/disrupted fractions, and log likelihood.
-	However, transit multiplicities are capped at 3+, and logLs are calculated to fit to the age of a system as a function of multiplicity.
+	Collect age spread across different transit multiplicity bins for each model. 
+	Transit multiplicities are capped at 3+, and, once relevatn, logLs will be calculated to fit to the age of a system as a function of multiplicity.
 
 	Inputs: 
 	- df: read-in DataFrames of the simulated planetary system products of injection_recovery_main.py
 	- f: fraction of planet-hosting stars
-	- transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs: future columns in CSV output of collect_simulations.py
 
 	Outputs:
-	- transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs: see description in Inputs
+	- age means and standard deviations for each multiplicity bin
 
 	"""
-	
-	# isolate transiting planets
-	transiters_berger_kepler = df.loc[df['transit_status']==1]
 
-	# compute transit multiplicity and save off the original transit multiplicity (pre-frac)
-	transit_multiplicity = f * transiters_berger_kepler.groupby('kepid').count()['transit_status'].reset_index().groupby('transit_status').count().reset_index().kepid
-	transit_multiplicity += [0.] * (6 - len(transit_multiplicity)) # pad with zeros to match length of k
-	transit_multiplicities.append(list(transit_multiplicity))
+	# isolate non-transiting systems
+	nontransit = df.loc[df['transit_status']==0]
 
-	# also calculate the geometric transit multiplicity
-	geom_transiters_berger_kepler = df.loc[df['geom_transit_status']==1]
-	geom_transit_multiplicity = f * geom_transiters_berger_kepler.groupby('kepid').count()['transit_status'].reset_index().groupby('transit_status').count().reset_index().kepid
-	geom_transit_multiplicity += [0.] * (6 - len(geom_transit_multiplicity)) # pad with zeros to match length of k
-	geom_transit_multiplicities.append(list(geom_transit_multiplicity))
+	# isolate transiting systems
+	transit = df.loc[df['transit_status']==1]
 
-	# calculate logLs 
-	logL = better_loglike(transit_multiplicity, k)
-	logLs.append(logL)
+	# if f < 1, randomly steal some non-nontransits for the nontransits gang
+	samples_indices = transit.sample(frac=f, replace=False).index 
+	transit.loc[samples_indices, 'transit_status'] = 0
 
-	# get intact and disrupted fractions (combine them later to get fraction of systems w/o planets)
-	intact = df.loc[df.intact_flag=='intact']
-	disrupted = df.loc[df.intact_flag=='disrupted']
-	intact_frac = f*len(intact)/len(df)
-	disrupted_frac = f*len(disrupted)/len(df)
-	intact_fracs.append(intact_frac)
-	disrupted_fracs.append(disrupted_frac)
+	# rejects
+	rejects = transit.loc[transit['transit_status'] == 0]
 
-	return transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs
+	# concatenate rejects to nontransit DataFrame
+	nontransit = pd.concat([nontransit, rejects])
+
+	# new transit DataFrame no longer has rejects
+	transit = transit.loc[transit['transit_status'] != 0]
+
+	# get age spread for non-transiting systems
+	zeros_age_mean = np.mean(nontransit.iso_age.astype(float))
+	zeros_age_std = np.mean(0.5 * (np.array(nontransit.iso_age_err1.astype(float)) + np.abs(np.array(nontransit.iso_age_err2.astype(float)))))
+
+	# create column counting number of planets per system
+	transit['yield'] = 1
+	transit = transit.groupby(['kepid', 'iso_age', 'iso_age_err1', 'iso_age_err2'])[['yield']].count().reset_index()
+
+	# get age spread for each count
+	ones = transit.loc[transit['yield'] == 1]
+	ones_age_mean = np.mean(ones.iso_age.astype(float))
+	ones_age_std = np.mean(0.5 * (np.array(ones.iso_age_err1.astype(float)) + np.abs(np.array(ones.iso_age_err2.astype(float)))))
+
+	twos = transit.loc[transit['yield'] == 2]
+	twos_age_mean = np.mean(twos.iso_age.astype(float))
+	twos_age_std = np.mean(0.5 * (np.array(twos.iso_age_err1.astype(float)) + np.abs(np.array(twos.iso_age_err2.astype(float)))))
+
+	threes = transit.loc[transit['yield'] >= 3]
+	threes_age_mean = np.mean(threes.iso_age.astype(float))
+	threes_age_std = np.mean(0.5 * (np.array(threes.iso_age_err1.astype(float)) + np.abs(np.array(threes.iso_age_err2.astype(float)))))
+
+	return zeros_age_mean, zeros_age_std, ones_age_mean, ones_age_std, twos_age_mean, twos_age_std, threes_age_mean, threes_age_std
 
 
 sims = []
@@ -213,11 +226,19 @@ start = datetime.now()
 
 sim = glob(output_path+'systems-recovery/transits0_0_0_0.csv')
 cube = prior_grid_logslope(cube, ndim, nparams, 0, 0, 0)
-transit_multiplicities = []
-geom_transit_multiplicities = []
-intact_fracs = []
-disrupted_fracs = []
-logLs = []
+#transit_multiplicities = []
+#geom_transit_multiplicities = []
+#intact_fracs = []
+#disrupted_fracs = []
+#logLs = []
+nontransit_age_maxes = []
+nontransit_age_mins = []
+ones_age_maxes = []
+ones_age_mins = []
+twos_age_maxes = []
+twos_age_mins = []
+threes_age_maxes = []
+threes_age_mins = []
 
 output = pd.DataFrame()
 
@@ -234,7 +255,16 @@ for f in np.linspace(0.1, 1, 10):
 		df = pd.read_csv(sim[i], sep=',', on_bad_lines='skip')
 
 		# populate future columns for output DataFrame
-		transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs = collect(df, f, transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs)
+		#transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs = collect(df, f, transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs)
+		nontransit_age_max, nontransit_age_min, ones_age_max, ones_age_min, twos_age_max, twos_age_min, threes_age_max, threes_age_min = collect_past_ii(df, f)
+		nontransit_age_maxes.append(nontransit_age_max)
+		nontransit_age_mins.append(nontransit_age_min)
+		ones_age_maxes.append(ones_age_max)
+		ones_age_mins.append(ones_age_min)
+		twos_age_maxes.append(twos_age_max)
+		twos_age_mins.append(twos_age_min)
+		threes_age_maxes.append(threes_age_max)
+		threes_age_mins.append(threes_age_min)
 
 for gi_m in range(3):
 
@@ -266,17 +296,27 @@ for gi_m in range(3):
 					df = pd.read_csv(sim[i], sep=',', on_bad_lines='skip')
 
 					# populate future columns for output DataFrame
-					transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs = collect(df, f, transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs)
+					#transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs = collect(df, f, transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs)
+					nontransit_age_max, nontransit_age_min, ones_age_max, ones_age_min, twos_age_max, twos_age_min, threes_age_max, threes_age_min = collect_past_ii(df, f)
+					nontransit_age_maxes.append(nontransit_age_max)
+					nontransit_age_mins.append(nontransit_age_min)
+					ones_age_maxes.append(ones_age_max)
+					ones_age_mins.append(ones_age_min)
+					twos_age_maxes.append(twos_age_max)
+					twos_age_mins.append(twos_age_min)
+					threes_age_maxes.append(threes_age_max)
+					threes_age_mins.append(threes_age_min)
 
 #end = datetime.now()
 #print("TIME ELAPSED: ", end-start)
 
 df_logL = pd.DataFrame({'ms': ms, 'bs': bs, 'cs': cs, 'fs': fs, 
-	'transit_multiplicities': transit_multiplicities, 'geom_transit_multiplicities': geom_transit_multiplicities, 'logLs': logLs, 
-	'intact_fracs': intact_fracs, 'disrupted_fracs': disrupted_fracs})
+	'nontransit_age_maxes': nontransit_age_maxes, 'nontransit_age_mins': nontransit_age_mins, 'ones_age_maxes': ones_age_maxes, 
+	'ones_age_mins': ones_age_mins, 'twos_age_maxes': twos_age_maxes, 'twos_age_mins': twos_age_mins,
+	'threes_age_maxes': threes_age_maxes, 'threes_age_mins': threes_age_mins})
 print(df_logL)
 
-df_logL.to_csv(output_path+'collect_recovery.csv', index=False)
+df_logL.to_csv(output_path+'past_ii_recovery.csv', index=False) # collect_ is for transit multiplicity; past_ii_ is for age vs multiplicity
 
 quit()
 
