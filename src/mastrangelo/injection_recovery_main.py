@@ -55,7 +55,7 @@ def prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c):
 	gi_c: grid index for cutoff time axis
 	"""
 	#cube[0] = -1e-9*np.logspace(8,10,11)[gi_m] # convert from year to Gyr
-	cube[0] = np.linspace(-2,0,3)[gi_m] 
+	cube[0] = np.linspace(-2,0,11)[gi_m] 
 	cube[1] = np.linspace(0,1,3)[gi_b]
 	#cube[2] = np.logspace(1e8,1e10,11)
 	cube[2] = np.logspace(8,10,11)[gi_c] # in Ballard et al in prep, they use log(yrs) instead of drawing yrs from logspace
@@ -129,7 +129,7 @@ def main_ground_truth(cube, ndim, nparams):
 	"""
 
 	# other models
-	for gi_m in range(3):
+	for gi_m in range(11):
 		for gi_b in range(2):
 
 			# increment to account for trivial case already being run
@@ -189,7 +189,7 @@ def main_recovery(cube, ndim, nparams):
 	"""
 
 	# now do the rest
-	for gi_m in range(3):
+	for gi_m in range(11):
 		for gi_b in range(2):
 
 			# increment to account for trivial case already being run
