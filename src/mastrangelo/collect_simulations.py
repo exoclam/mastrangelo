@@ -224,13 +224,14 @@ fs = []
 start = datetime.now()
 #print("start: ", start)
 
-sim = glob(output_path+'systems/transits0_0_0_0.csv')
+sim = glob(output_path+'systems-recovery/transits0_0_0_0.csv')
 cube = prior_grid_logslope(cube, ndim, nparams, 0, 0, 0)
-#transit_multiplicities = []
-#geom_transit_multiplicities = []
-#intact_fracs = []
-#disrupted_fracs = []
-#logLs = []
+transit_multiplicities = []
+geom_transit_multiplicities = []
+intact_fracs = []
+disrupted_fracs = []
+logLs = []
+"""
 nontransit_age_maxes = []
 nontransit_age_mins = []
 ones_age_maxes = []
@@ -239,7 +240,7 @@ twos_age_maxes = []
 twos_age_mins = []
 threes_age_maxes = []
 threes_age_mins = []
-
+"""
 output = pd.DataFrame()
 
 # cycle through different fractions of systems with planets
@@ -252,11 +253,12 @@ for f in np.linspace(0.1, 1, 10):
 		cs.append(cube[2])
 		fs.append(f)
 					
-		df = pd.read_csv(sim[i], sep='\t', on_bad_lines='skip')
+		df = pd.read_csv(sim[i], sep=',', on_bad_lines='skip')
 
 		# populate future columns for output DataFrame
-		#transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs = collect(df, f, transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs)
-		nontransit_age_max, nontransit_age_min, ones_age_max, ones_age_min, twos_age_max, twos_age_min, threes_age_max, threes_age_min = collect_past_ii(df, f)
+		transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs = collect(df, f, transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs)
+		#nontransit_age_max, nontransit_age_min, ones_age_max, ones_age_min, twos_age_max, twos_age_min, threes_age_max, threes_age_min = collect_past_ii(df, f)
+		"""
 		nontransit_age_maxes.append(nontransit_age_max)
 		nontransit_age_mins.append(nontransit_age_min)
 		ones_age_maxes.append(ones_age_max)
@@ -265,8 +267,8 @@ for f in np.linspace(0.1, 1, 10):
 		twos_age_mins.append(twos_age_min)
 		threes_age_maxes.append(threes_age_max)
 		threes_age_mins.append(threes_age_min)
-
-for gi_m in range(3):
+		"""
+for gi_m in range(11):
 
 	for gi_b in range(2):
 		
@@ -276,7 +278,7 @@ for gi_m in range(3):
 			print(gi_m, gi_b, gi_c) # so I know where I am
 
 			try:
-				sim = glob(output_path+'systems/transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
+				sim = glob(output_path+'systems-recovery/transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
 			except:
 				print("file not found: ", 'transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
 				continue # if no file found, skip to next iteration 
@@ -293,11 +295,12 @@ for gi_m in range(3):
 					cs.append(cube[2])
 					fs.append(f)
 
-					df = pd.read_csv(sim[i], sep='\t', on_bad_lines='skip')
+					df = pd.read_csv(sim[i], sep=',', on_bad_lines='skip')
 
 					# populate future columns for output DataFrame
-					#transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs = collect(df, f, transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs)
-					nontransit_age_max, nontransit_age_min, ones_age_max, ones_age_min, twos_age_max, twos_age_min, threes_age_max, threes_age_min = collect_past_ii(df, f)
+					transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs = collect(df, f, transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs)
+					#nontransit_age_max, nontransit_age_min, ones_age_max, ones_age_min, twos_age_max, twos_age_min, threes_age_max, threes_age_min = collect_past_ii(df, f)
+					"""
 					nontransit_age_maxes.append(nontransit_age_max)
 					nontransit_age_mins.append(nontransit_age_min)
 					ones_age_maxes.append(ones_age_max)
@@ -306,17 +309,20 @@ for gi_m in range(3):
 					twos_age_mins.append(twos_age_min)
 					threes_age_maxes.append(threes_age_max)
 					threes_age_mins.append(threes_age_min)
+					"""
 
 #end = datetime.now()
 #print("TIME ELAPSED: ", end-start)
 
-df_logL = pd.DataFrame({'ms': ms, 'bs': bs, 'cs': cs, 'fs': fs, 
-	'nontransit_age_maxes': nontransit_age_maxes, 'nontransit_age_mins': nontransit_age_mins, 'ones_age_maxes': ones_age_maxes, 
-	'ones_age_mins': ones_age_mins, 'twos_age_maxes': twos_age_maxes, 'twos_age_mins': twos_age_mins,
-	'threes_age_maxes': threes_age_maxes, 'threes_age_mins': threes_age_mins})
+df_logL = pd.DataFrame({'ms': ms, 'bs': bs, 'cs': cs, 'fs': fs, 'transit_multiplicities': transit_multiplicities, 
+			'geom_transit_multiplicities': geom_transit_multiplicities, 'intact_fracs': intact_fracs, 'disrupted_fracs': disrupted_fracs, 'logLs': logLs})
+			
+	#'nontransit_age_maxes': nontransit_age_maxes, 'nontransit_age_mins': nontransit_age_mins, 'ones_age_maxes': ones_age_maxes, 
+	#'ones_age_mins': ones_age_mins, 'twos_age_maxes': twos_age_maxes, 'twos_age_mins': twos_age_mins,
+	#'threes_age_maxes': threes_age_maxes, 'threes_age_mins': threes_age_mins})
 print(df_logL)
 
-df_logL.to_csv(output_path+'past_ii_ground_truth.csv', index=False) # collect_ is for transit multiplicity; past_ii_ is for age vs multiplicity
+df_logL.to_csv(output_path+'collect_recovery.csv', index=False) # collect_ is for transit multiplicity; past_ii_ is for age vs multiplicity
 
 quit()
 

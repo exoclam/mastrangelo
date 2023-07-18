@@ -135,7 +135,7 @@ def main_ground_truth(cube, ndim, nparams):
 			# increment to account for trivial case already being run
 			gi_b = gi_b + 1 
 
-			for gi_c in tqdm(range(11)): # NEED TO RUN 4, 5, 6, 7, 9, 10, 11...or, you know, just do a done-ness check
+			for gi_c in range(11): # NEED TO RUN 4, 5, 6, 7, 9, 10, 11...or, you know, just do a done-ness check
 
 				# fetch hyperparams
 				cube = prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c)
@@ -195,7 +195,7 @@ def main_recovery(cube, ndim, nparams):
 			# increment to account for trivial case already being run
 			gi_b = gi_b + 1 
 				
-			for gi_c in tqdm(range(11)): 
+			for gi_c in range(11): 
 
 				# fetch hyperparams
 				cube = prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c)
