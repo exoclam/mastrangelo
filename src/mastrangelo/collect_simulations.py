@@ -45,7 +45,7 @@ def prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c):
 	gi_c: grid index for cutoff time axis
 	"""
 	#cube[0] = -1e-9*np.logspace(8,10,11)[gi_m] # convert from year to Gyr
-	cube[0] = np.linspace(-2,0,3)[gi_m] 
+	cube[0] = np.linspace(-2,0,11)[gi_m] 
 	cube[1] = np.linspace(0,1,3)[gi_b]
 	#cube[2] = np.logspace(1e8,1e10,11)
 	cube[2] = np.logspace(8,10,11)[gi_c] # in Ballard et al in prep, they use log(yrs) instead of drawing yrs from logspace
