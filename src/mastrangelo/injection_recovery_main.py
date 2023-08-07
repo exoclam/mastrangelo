@@ -236,4 +236,4 @@ print("elapsed non-vectorized: ", end-start)
 # it was 171 seconds, or about 6 times slower 
 """
 
-main_recovery(cube, ndim, nparams)
+main_ground_truth(cube, ndim, nparams)
