@@ -190,10 +190,10 @@ def main_recovery(cube, ndim, nparams):
 
 	# now do the rest
 	for gi_m in range(11):
-		for gi_b in range(2):
+		for gi_b in range(11):
 
 			# increment to account for trivial case already being run
-			gi_b = gi_b + 1 
+			#gi_b = gi_b + 1 
 				
 			for gi_c in range(11): 
 
@@ -236,4 +236,4 @@ print("elapsed non-vectorized: ", end-start)
 # it was 171 seconds, or about 6 times slower 
 """
 
-main_ground_truth(cube, ndim, nparams)
+main_recovery(cube, ndim, nparams)
