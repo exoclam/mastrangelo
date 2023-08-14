@@ -55,7 +55,8 @@ def prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c):
 	gi_c: grid index for cutoff time axis
 	"""
 	#cube[0] = -1e-9*np.logspace(8,10,11)[gi_m] # convert from year to Gyr
-	cube[0] = np.linspace(-2,0,11)[gi_m] 
+	#cube[0] = np.linspace(-2,0,11)[gi_m] 
+	cube[0] = np.linspace(-1,0,6)[gi_m] 
 	cube[1] = np.linspace(0,1,11)[gi_b]
 	#cube[2] = np.logspace(1e8,1e10,11)
 	cube[2] = np.logspace(8,10,11)[gi_c] # in Ballard et al in prep, they use log(yrs) instead of drawing yrs from logspace
@@ -108,7 +109,7 @@ def main_ground_truth(cube, ndim, nparams):
 	"""
 
 	### ad hoc logic bc HPG ran out of memory and I don't want to redo already-finished simulations
-	done = glob(path+'systems/transits*')
+	done = glob(output_path+'systems/transits*')
 
 	cube = prior_grid_logslope(cube, ndim, nparams, 0, 0, 0)
 
@@ -129,7 +130,7 @@ def main_ground_truth(cube, ndim, nparams):
 	"""
 
 	# other models
-	for gi_m in range(11):
+	for gi_m in range(6):
 		for gi_b in range(11):
 
 			# increment to account for trivial case already being run
@@ -144,11 +145,11 @@ def main_ground_truth(cube, ndim, nparams):
 				output_filename = output_path + 'systems/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '.csv'
 
 				if output_filename not in done:
-					berger_kepler_planets = model_vectorized(berger_kepler, 'limbach-hybrid', cube)
+					berger_kepler_planets = model_vectorized(berger_kepler, 'limbach-hybrid', cube, bootstrap=False)
 					berger_kepler_planets = berger_kepler_planets[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
 							'iso_age', 'iso_age_err1', 'iso_age_err2', 'logR','is_giant','fractional_err1','fractional_err2','prob_intact','midplanes',
 							'intact_flag','sigma','num_planets','P','incl','mutual_incl','ecc','omega','lambda_ks','second_terms','geom_transit_status','transit_status',
-							'prob_detections','sn']]
+							'prob_detections','sn']] 
 			
 					berger_kepler_planets.to_csv(output_filename, sep='\t')
 
@@ -164,7 +165,7 @@ def main_recovery(cube, ndim, nparams):
 	FOR EACH REALIZATION, COMPARE 
 	"""
 
-	done = glob(path+'systems-recovery/transits*')
+	done = glob(output_path+'systems-recovery/transits*')
 
 	# do the trivial case of everybody is disrupted, just once
 	#cube = prior_grid_logslope(cube, ndim, nparams, 0, 0, 0)
@@ -189,7 +190,7 @@ def main_recovery(cube, ndim, nparams):
 	"""
 
 	# now do the rest
-	for gi_m in range(11):
+	for gi_m in range(6):
 		for gi_b in range(11):
 
 			# increment to account for trivial case already being run
@@ -206,7 +207,7 @@ def main_recovery(cube, ndim, nparams):
 					output_filename = output_path + 'systems-recovery/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
 					if output_filename not in done:
 
-						berger_kepler_planets = model_vectorized(berger_kepler_temp, 'limbach-hybrid', cube)
+						berger_kepler_planets = model_vectorized(berger_kepler_temp, 'limbach-hybrid', cube, bootstrap=True)
 						berger_kepler_planets = berger_kepler_planets[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
 								'iso_age', 'iso_age_err1', 'iso_age_err2', 'logR','is_giant','fractional_err1','fractional_err2','prob_intact','midplanes',
 								'intact_flag','sigma','num_planets','P','incl','mutual_incl','ecc','omega','lambda_ks','second_terms','geom_transit_status','transit_status',
