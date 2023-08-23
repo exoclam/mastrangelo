@@ -524,8 +524,8 @@ def model_vectorized(df, model_flag, cube, bootstrap=False):
         # draw eccentricity
         if (model_flag=='limbach-hybrid') | (model_flag=='limbach'):
             # for drawing eccentricities using Limbach & Turner 2014 CDFs relating e to multiplicity
-            limbach = pd.read_csv(input_path+'limbach_cdfs.txt', engine='python', header=0, sep='\s{2,20}') # space-agnostic separator
-            #limbach = pd.read_csv(path+'data/limbach_cdfs.txt', engine='python', header=0, sep='\s{2,20}') # space-agnostic separator
+            #limbach = pd.read_csv(input_path+'limbach_cdfs.txt', engine='python', header=0, sep='\s{2,20}') # space-agnostic separator
+            limbach = pd.read_csv(path+'data/limbach_cdfs.txt', engine='python', header=0, sep='\s{2,20}') # space-agnostic separator
             df['ecc'] = df.num_planets.apply(lambda x: draw_eccentricity_van_eylen_vectorized(model_flag, x, limbach))
         else:
             df['ecc'] = df.num_planets.apply(lambda x: draw_eccentricity_van_eylen_vectorized(model_flag, x))
