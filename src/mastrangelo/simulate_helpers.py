@@ -93,7 +93,7 @@ def compute_prob_vectorized(df, m, b, cutoff, bootstrap): # adapted from Ballard
     - df: same as input, but with new column called prob_intact
 
     """
-
+    
     if bootstrap == False:
         df['prob_intact'] = np.where(
                 ((df['iso_age']*1e9 > 1e8) & (df['iso_age']*1e9 <= cutoff)), b+m*(np.log10(df['iso_age']*1e9)-8), np.where(
