@@ -94,7 +94,7 @@ cube = [0, 0, 0]
 def test1(gi_m, gi_b, gi_c, f, cube):
 
 	"""
-	Test 1: Unit tests to see how much information a sculpting law contains
+	Test 1: Unit tests to see how much information a sculpting law contains, and debug compute_prob_vectorized()
 	"""
 
 	cube = prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c)
@@ -115,9 +115,16 @@ def test1(gi_m, gi_b, gi_c, f, cube):
 	transit_multiplicity = f * transiters_berger_kepler.groupby('kepid').count()['transit_status'].reset_index().groupby('transit_status').count().reset_index().kepid
 	transit_multiplicity = transit_multiplicity.to_list()
 	print(transit_multiplicity)
+	print(better_loglike(transit_multiplicity, k))
 
 	return cube, berger_kepler_planets
 
+# Some simulations got 60 instead of 30 samples, for some reason. Some of them have wildly different transit multiplicities. Why?
+for i in range(30):
+	#test1(3, 10, 2, 0.4, cube)
+	#test1(3, 9, 2, 0.4, cube)
+	test1(2, 5, 2, 0.4, cube)
+quit()
 
 #_, bkp1 = test1(1, 1, 7, 0.3, cube)
 #cube, bkp2 = test1(1, 1, 1, 0.3, cube)

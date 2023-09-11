@@ -198,14 +198,15 @@ def main_recovery(cube, ndim, nparams):
 				
 			for gi_c in range(11): 
 
-				# fetch hyperparams
-				cube = prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c)
+				if gi_c == 1: # special case to redo c=1.6e8 yrs
+					# fetch hyperparams
+					cube = prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c)
 
-				for i in range(30):
-					berger_kepler_temp = draw_star(berger_kepler)
-					#output_filename = output_path + 'systems-recovery/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
-					output_filename = output_path + 'systems-recovery/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
-					if output_filename not in done:
+					for i in range(30):
+						berger_kepler_temp = draw_star(berger_kepler)
+						#output_filename = output_path + 'systems-recovery/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
+						output_filename = output_path + 'systems-recovery-redo/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
+						#if output_filename not in done:
 
 						berger_kepler_planets = model_vectorized(berger_kepler_temp, 'limbach-hybrid', cube, bootstrap=True)
 						berger_kepler_planets = berger_kepler_planets[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
@@ -214,8 +215,8 @@ def main_recovery(cube, ndim, nparams):
 								'prob_detections','sn']]
 						berger_kepler_planets.to_csv(output_filename)
 
-					else:
-						pass
+						#else:
+						#	pass
 
 	return
 
@@ -237,4 +238,4 @@ print("elapsed non-vectorized: ", end-start)
 # it was 171 seconds, or about 6 times slower 
 """
 
-main_ground_truth(cube, ndim, nparams)
+main_recovery(cube, ndim, nparams)
