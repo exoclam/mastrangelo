@@ -27,7 +27,10 @@ input_path = '/blue/sarahballard/c.lam/sculpting2/' # HPG
 output_path = '/blue/sarahballard/c.lam/sculpting2/mastrangelo/' # HPG
 #path = '/Users/chris/Desktop/mastrangelo/' # new computer has different username
 #berger_kepler = pd.read_csv(path+'data/berger_kepler_stellar_fgk.csv') # crossmatched with Gaia via Bedell
-berger_kepler = pd.read_csv(input_path+'berger_kepler_stellar_fgk.csv') # crossmatched with Gaia via Bedell
+#berger_kepler = pd.read_csv(input_path+'berger_kepler_stellar_fgk.csv') # crossmatched with Gaia via Bedell
+
+### re-make planetary systems assuming an idealized case of 10% age errors 
+berger_kepler = pd.read_csv(input_path+'berger_kepler_stellar_fgk_ten.csv') 
 
 # make berger_kepler more wieldy
 berger_kepler = berger_kepler[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
@@ -109,7 +112,7 @@ def main_ground_truth(cube, ndim, nparams):
 	"""
 
 	### ad hoc logic bc HPG ran out of memory and I don't want to redo already-finished simulations
-	done = glob(output_path+'systems/transits*')
+	done = glob(output_path+'systems-ten/transits*')
 
 	cube = prior_grid_logslope(cube, ndim, nparams, 0, 0, 0)
 
@@ -142,7 +145,7 @@ def main_ground_truth(cube, ndim, nparams):
 				cube = prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c)
 
 				# generate filename
-				output_filename = output_path + 'systems/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '.csv'
+				output_filename = output_path + 'systems-ten/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '.csv'
 
 				if output_filename not in done:
 					berger_kepler_planets = model_vectorized(berger_kepler, 'limbach-hybrid', cube, bootstrap=False)
@@ -165,7 +168,7 @@ def main_recovery(cube, ndim, nparams):
 	FOR EACH REALIZATION, COMPARE 
 	"""
 
-	done = glob(output_path+'systems-recovery/transits*')
+	done = glob(output_path+'systems-recovery-ten/transits*')
 
 	# do the trivial case of everybody is disrupted, just once
 	#cube = prior_grid_logslope(cube, ndim, nparams, 0, 0, 0)
@@ -198,15 +201,14 @@ def main_recovery(cube, ndim, nparams):
 				
 			for gi_c in range(11): 
 
-				if gi_c == 1: # special case to redo c=1.6e8 yrs
-					# fetch hyperparams
-					cube = prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c)
+				# fetch hyperparams
+				cube = prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c)
 
-					for i in range(30):
-						berger_kepler_temp = draw_star(berger_kepler)
-						#output_filename = output_path + 'systems-recovery/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
-						output_filename = output_path + 'systems-recovery-redo/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
-						#if output_filename not in done:
+				for i in range(30):
+					berger_kepler_temp = draw_star(berger_kepler)
+					#output_filename = output_path + 'systems-recovery/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
+					output_filename = output_path + 'systems-recovery-ten/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
+					if output_filename not in done:
 
 						berger_kepler_planets = model_vectorized(berger_kepler_temp, 'limbach-hybrid', cube, bootstrap=True)
 						berger_kepler_planets = berger_kepler_planets[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
@@ -215,8 +217,8 @@ def main_recovery(cube, ndim, nparams):
 								'prob_detections','sn']]
 						berger_kepler_planets.to_csv(output_filename)
 
-						#else:
-						#	pass
+					else:
+						pass
 
 	return
 
