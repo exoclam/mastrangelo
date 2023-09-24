@@ -301,48 +301,48 @@ for gi_m in range(6):
 
 	for gi_b in range(11):
 		
-		#for gi_c in range(11):
+		for gi_c in range(11):
 			
-		try:
-			#sim = glob(output_path+'systems-recovery-redo/transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
-			sim = glob(output_path+'systems-recovery-redo/transits'+str(gi_m)+'_'+str(gi_b)+'_1*')
-		except:
-			#print("file not found: ", 'transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
-			print("file not found: ", 'transits'+str(gi_m)+'_'+str(gi_b)+'_1*')
-			continue # if no file found, skip to next iteration 
+			try:
+				sim = glob(output_path+'systems-ten/transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
+				#sim = glob(output_path+'systems-ten/transits'+str(gi_m)+'_'+str(gi_b)+'_1*')
+			except:
+				print("file not found: ", 'transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
+				#print("file not found: ", 'transits'+str(gi_m)+'_'+str(gi_b)+'_1*')
+				continue # if no file found, skip to next iteration 
 
-		cube = prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, 1)
-		print(gi_m, gi_b, 1, len(sim)) # so I know where I am
+			cube = prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c)
+			print(gi_m, gi_b, gi_c, len(sim)) # so I know where I am
 
-		# cycle through different fractions of systems with planets
-		for f in np.round(np.linspace(0.1, 1, 10), 1):
-			
-			for i in range(len(sim)):
-
-				df = pd.read_csv(sim[i], sep=',', on_bad_lines='skip')
-
-				# populate future columns for output DataFrame
-				try: # Some sim dfs got corrupted in HPG. We skip these. 
-					transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs = collect(df, f, transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs)
-					#nontransit_age_max, nontransit_age_min, ones_age_max, ones_age_min, twos_age_max, twos_age_min, threes_age_max, threes_age_min = collect_past_ii(df, f)
-					ms.append(cube[0])
-					bs.append(cube[1])
-					cs.append(cube[2])
-					fs.append(f)
-
-				except:
-					continue
+			# cycle through different fractions of systems with planets
+			for f in np.round(np.linspace(0.1, 1, 10), 1):
 				
-				"""
-				nontransit_age_maxes.append(nontransit_age_max)
-				nontransit_age_mins.append(nontransit_age_min)
-				ones_age_maxes.append(ones_age_max)
-				ones_age_mins.append(ones_age_min)
-				twos_age_maxes.append(twos_age_max)
-				twos_age_mins.append(twos_age_min)
-				threes_age_maxes.append(threes_age_max)
-				threes_age_mins.append(threes_age_min)
-				"""
+				for i in range(len(sim)):
+
+					df = pd.read_csv(sim[i], sep='\t', on_bad_lines='skip')
+
+					# populate future columns for output DataFrame
+					try: # Some sim dfs got corrupted in HPG. We skip these. 
+						transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs = collect(df, f, transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs)
+						#nontransit_age_max, nontransit_age_min, ones_age_max, ones_age_min, twos_age_max, twos_age_min, threes_age_max, threes_age_min = collect_past_ii(df, f)
+						ms.append(cube[0])
+						bs.append(cube[1])
+						cs.append(cube[2])
+						fs.append(f)
+
+					except:
+						continue
+					
+					"""
+					nontransit_age_maxes.append(nontransit_age_max)
+					nontransit_age_mins.append(nontransit_age_min)
+					ones_age_maxes.append(ones_age_max)
+					ones_age_mins.append(ones_age_min)
+					twos_age_maxes.append(twos_age_max)
+					twos_age_mins.append(twos_age_min)
+					threes_age_maxes.append(threes_age_max)
+					threes_age_mins.append(threes_age_min)
+					"""
 
 #end = datetime.now()
 #print("TIME ELAPSED: ", end-start)
@@ -355,7 +355,7 @@ df_logL = pd.DataFrame({'ms': ms, 'bs': bs, 'cs': cs, 'fs': fs, 'transit_multipl
 	#'threes_age_maxes': threes_age_maxes, 'threes_age_mins': threes_age_mins})
 print(df_logL)
 
-df_logL.to_csv(output_path+'collect_recovery_redo.csv', index=False) # collect_ is for transit multiplicity; past_ii_ is for age vs multiplicity
+df_logL.to_csv(output_path+'collect_ground_truth_ten.csv', index=False) # collect_ is for transit multiplicity; past_ii_ is for age vs multiplicity
 
 quit()
 

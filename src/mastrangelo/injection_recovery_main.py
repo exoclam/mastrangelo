@@ -112,7 +112,7 @@ def main_ground_truth(cube, ndim, nparams):
 	"""
 
 	### ad hoc logic bc HPG ran out of memory and I don't want to redo already-finished simulations
-	done = glob(output_path+'systems-ten/transits*')
+	done = glob(output_path+'systems-ten2/transits*')
 
 	cube = prior_grid_logslope(cube, ndim, nparams, 0, 0, 0)
 
@@ -145,7 +145,7 @@ def main_ground_truth(cube, ndim, nparams):
 				cube = prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c)
 
 				# generate filename
-				output_filename = output_path + 'systems-ten/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '.csv'
+				output_filename = output_path + 'systems-ten2/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '.csv'
 
 				if output_filename not in done:
 					berger_kepler_planets = model_vectorized(berger_kepler, 'limbach-hybrid', cube, bootstrap=False)
@@ -168,7 +168,7 @@ def main_recovery(cube, ndim, nparams):
 	FOR EACH REALIZATION, COMPARE 
 	"""
 
-	done = glob(output_path+'systems-recovery-ten/transits*')
+	done = glob(output_path+'systems-recovery-ten2/transits*')
 
 	# do the trivial case of everybody is disrupted, just once
 	#cube = prior_grid_logslope(cube, ndim, nparams, 0, 0, 0)
@@ -207,7 +207,7 @@ def main_recovery(cube, ndim, nparams):
 				for i in range(30):
 					berger_kepler_temp = draw_star(berger_kepler)
 					#output_filename = output_path + 'systems-recovery/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
-					output_filename = output_path + 'systems-recovery-ten/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
+					output_filename = output_path + 'systems-recovery-ten2/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
 					if output_filename not in done:
 
 						berger_kepler_planets = model_vectorized(berger_kepler_temp, 'limbach-hybrid', cube, bootstrap=True)
@@ -240,4 +240,4 @@ print("elapsed non-vectorized: ", end-start)
 # it was 171 seconds, or about 6 times slower 
 """
 
-main_recovery(cube, ndim, nparams)
+main_ground_truth(cube, ndim, nparams)
