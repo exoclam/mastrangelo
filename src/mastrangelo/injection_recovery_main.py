@@ -215,7 +215,7 @@ def main_recovery(cube, ndim, nparams):
 								'iso_age', 'iso_age_err1', 'iso_age_err2', 'logR','is_giant','fractional_err1','fractional_err2','prob_intact','midplanes',
 								'intact_flag','sigma','num_planets','P','incl','mutual_incl','ecc','omega','lambda_ks','second_terms','geom_transit_status','transit_status',
 								'prob_detections','sn']]
-						berger_kepler_planets.to_csv(output_filename)
+						berger_kepler_planets.to_csv(output_filename, sep='\t')
 
 					else:
 						pass
