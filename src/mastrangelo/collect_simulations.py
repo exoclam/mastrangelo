@@ -304,7 +304,7 @@ for gi_m in range(6):
 		for gi_c in range(11):
 			
 			try:
-				sim = glob(output_path+'systems-ten/transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
+				sim = glob(output_path+'systems-recovery-ten2/transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
 				#sim = glob(output_path+'systems-ten/transits'+str(gi_m)+'_'+str(gi_b)+'_1*')
 			except:
 				print("file not found: ", 'transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
@@ -319,7 +319,7 @@ for gi_m in range(6):
 				
 				for i in range(len(sim)):
 
-					df = pd.read_csv(sim[i], sep='\t', on_bad_lines='skip')
+					df = pd.read_csv(sim[i], sep='\t', on_bad_lines='skip') # ground truth is \t; recovery is ,
 
 					# populate future columns for output DataFrame
 					try: # Some sim dfs got corrupted in HPG. We skip these. 
@@ -355,7 +355,7 @@ df_logL = pd.DataFrame({'ms': ms, 'bs': bs, 'cs': cs, 'fs': fs, 'transit_multipl
 	#'threes_age_maxes': threes_age_maxes, 'threes_age_mins': threes_age_mins})
 print(df_logL)
 
-df_logL.to_csv(output_path+'collect_ground_truth_ten.csv', index=False) # collect_ is for transit multiplicity; past_ii_ is for age vs multiplicity
+df_logL.to_csv(output_path+'collect_recovery_ten2.csv', index=False) # collect_ is for transit multiplicity; past_ii_ is for age vs multiplicity
 
 quit()
 
