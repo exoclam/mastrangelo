@@ -168,7 +168,7 @@ def main_recovery(cube, ndim, nparams):
 	FOR EACH REALIZATION, COMPARE 
 	"""
 
-	done = glob(output_path+'systems-recovery-ten2/transits*')
+	done = glob(output_path+'systems-recovery-ten3/transits*')
 
 	# do the trivial case of everybody is disrupted, just once
 	#cube = prior_grid_logslope(cube, ndim, nparams, 0, 0, 0)
@@ -203,18 +203,31 @@ def main_recovery(cube, ndim, nparams):
 
 				# fetch hyperparams
 				cube = prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c)
+				
+				# TEST LINE
+				print("berger kepler: ", berger_kepler)
 
 				for i in range(30):
 					berger_kepler_temp = draw_star(berger_kepler)
 					#output_filename = output_path + 'systems-recovery/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
-					output_filename = output_path + 'systems-recovery-ten2/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
+					output_filename = output_path + 'systems-recovery-ten3/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
+					
+					# TEST LINE
+					print("draw star: ", berger_kepler_temp.age)
+
 					if output_filename not in done:
 
 						berger_kepler_planets = model_vectorized(berger_kepler_temp, 'limbach-hybrid', cube, bootstrap=True)
 						berger_kepler_planets = berger_kepler_planets[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
 								'iso_age', 'iso_age_err1', 'iso_age_err2', 'logR','is_giant','fractional_err1','fractional_err2','prob_intact','midplanes',
 								'intact_flag','sigma','num_planets','P','incl','mutual_incl','ecc','omega','lambda_ks','second_terms','geom_transit_status','transit_status',
-								'prob_detections','sn']]
+								'prob_detections','sn', 'age']]
+						
+						# TEST LINE
+						print("model vectorized: ", berger_kepler_planets.age)
+
+						asdfadf
+
 						berger_kepler_planets.to_csv(output_filename, sep='\t')
 
 					else:
@@ -240,4 +253,4 @@ print("elapsed non-vectorized: ", end-start)
 # it was 171 seconds, or about 6 times slower 
 """
 
-main_ground_truth(cube, ndim, nparams)
+main_recovery(cube, ndim, nparams)
