@@ -1,6 +1,4 @@
-# for each {m, b, cutoff} filename, read all 9 files
-# calculate logLs and get mean and std (or min and max)
-# read out to plot in Jupyter locally
+### Collect the outputs of injection_recovery_main.py
 
 import json
 import sys
@@ -161,7 +159,7 @@ def collect_past_ii(df, f):
 	
 	"""
 	Collect age spread across different transit multiplicity bins for each model. 
-	Transit multiplicities are capped at 3+, and, once relevatn, logLs will be calculated to fit to the age of a system as a function of multiplicity.
+	Transit multiplicities are capped at 3+, and, once relevant, logLs will be calculated to fit to the age of a system as a function of multiplicity.
 
 	Inputs: 
 	- df: read-in DataFrames of the simulated planetary system products of injection_recovery_main.py
@@ -304,7 +302,7 @@ for gi_m in range(6):
 		for gi_c in range(11):
 			
 			try:
-				sim = glob(output_path+'systems-recovery-ten2/transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
+				sim = glob(output_path+'systems-recovery-loguniform-redo/transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
 				#sim = glob(output_path+'systems-ten/transits'+str(gi_m)+'_'+str(gi_b)+'_1*')
 			except:
 				print("file not found: ", 'transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
@@ -355,7 +353,7 @@ df_logL = pd.DataFrame({'ms': ms, 'bs': bs, 'cs': cs, 'fs': fs, 'transit_multipl
 	#'threes_age_maxes': threes_age_maxes, 'threes_age_mins': threes_age_mins})
 print(df_logL)
 
-df_logL.to_csv(output_path+'collect_recovery_ten2.csv', index=False) # collect_ is for transit multiplicity; past_ii_ is for age vs multiplicity
+df_logL.to_csv(output_path+'collect_ground_truth_loguniform_redo.csv', index=False) # collect_ is for transit multiplicity; past_ii_ is for age vs multiplicity
 
 quit()
 
