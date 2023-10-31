@@ -147,8 +147,8 @@ def collect(df, f, transit_multiplicities, geom_transit_multiplicities, intact_f
 	# get intact and disrupted fractions (combine them later to get fraction of systems w/o planets)
 	intact = df.loc[df.intact_flag=='intact']
 	disrupted = df.loc[df.intact_flag=='disrupted']
-	intact_frac = f*len(intact)/len(df)
-	disrupted_frac = f*len(disrupted)/len(df)
+	intact_frac = f*len(intact.kepid.unique())/len(df.kepid.unique())
+	disrupted_frac = f*len(disrupted.kepid.unique())/len(df.kepid.unique())
 	intact_fracs.append(intact_frac)
 	disrupted_fracs.append(disrupted_frac)
 
@@ -302,7 +302,7 @@ for gi_m in range(6):
 		for gi_c in range(11):
 			
 			try:
-				sim = glob(output_path+'systems-recovery-loguniform-redo/transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
+				sim = glob(output_path+'systems2/transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
 				#sim = glob(output_path+'systems-ten/transits'+str(gi_m)+'_'+str(gi_b)+'_1*')
 			except:
 				print("file not found: ", 'transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
@@ -353,7 +353,7 @@ df_logL = pd.DataFrame({'ms': ms, 'bs': bs, 'cs': cs, 'fs': fs, 'transit_multipl
 	#'threes_age_maxes': threes_age_maxes, 'threes_age_mins': threes_age_mins})
 print(df_logL)
 
-df_logL.to_csv(output_path+'collect_ground_truth_loguniform_redo.csv', index=False) # collect_ is for transit multiplicity; past_ii_ is for age vs multiplicity
+df_logL.to_csv(output_path+'collect_ground_truth2.csv', index=False) # collect_ is for transit multiplicity; past_ii_ is for age vs multiplicity
 
 quit()
 

@@ -227,7 +227,7 @@ def draw_eccentricity_van_eylen_vectorized(model_flag, num_planets, *args):
         limbach = args[0]
         sigma_rayleigh = 0.26
         #draws = np.where(num_planets > 1, calculate_eccentricity_limbach(num_planets), np.random.rayleigh(sigma_rayleigh, num_planets))
-        draws = np.where(num_planets > 1, calculate_eccentricity_limbach_vectorized(num_planets, limbach), np.random.rayleigh(sigma_rayleigh, num_planets))
+        draws = np.where(num_planets > 2, calculate_eccentricity_limbach_vectorized(num_planets, limbach), np.random.rayleigh(sigma_rayleigh, num_planets))
         #draws = np.where(num_planets > 1, calculate_eccentricity_limbach_vectorized_bank(num_planets), np.random.rayleigh(sigma_rayleigh, num_planets))
 
     elif model_flag=='rayleigh':
