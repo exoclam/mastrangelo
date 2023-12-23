@@ -27,7 +27,6 @@ input_path = '/blue/sarahballard/c.lam/sculpting2/' # HPG
 output_path = '/blue/sarahballard/c.lam/sculpting2/mastrangelo/' # HPG
 #path = '/Users/chris/Desktop/mastrangelo/' # new computer has different username
 berger_kepler = pd.read_csv(input_path+'berger_kepler_stellar_fgk.csv') # crossmatched with Gaia via Bedell
-#berger_kepler = pd.read_csv(input_path+'berger_kepler_stellar_fgk.csv') # crossmatched with Gaia via Bedell
 
 ### re-make planetary systems assuming an idealized case of 10% age errors 
 #berger_kepler = pd.read_csv(input_path+'berger_kepler_stellar_loguniform.csv') 
