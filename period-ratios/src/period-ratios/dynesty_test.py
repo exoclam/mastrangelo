@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from math import lgamma
-from helpers import period_ratios, numpy_callback, times_one
+from helpers import period_ratios
 import dynesty
 from dynesty import plotting as dyplot
 
@@ -19,10 +19,11 @@ k = np.array([6., 9., 22., 10.])
 
 # set path for input
 path = '/Users/chrislam/Desktop/mastrangelo/'
+path = '/home/c.lam/blue/period-ratios/'
 kepler_planet_enriched = pd.read_csv(path+'data/pnum_plus_cands_fgk.csv')
 
 # reset path for outputs
-path = path+'period-ratios/'
+#path = path+'period-ratios/'
 
 # dynesty initialization prep
 rstate = np.random.default_rng(819)
@@ -116,11 +117,20 @@ sampler = dynesty.NestedSampler(loglikelihood, prior_transform, ndim, nlive=100,
                                rstate=rstate)
 
 # sample from the target distribution
-sampler.run_nested(dlogz=0.1)
+sampler.run_nested(dlogz=0.1, checkpoint_file=path+'nested_run.sav')
 
 res = sampler.results  # grab our results
 print('Keys:', res.keys(),'\n')  # print accessible keys
 res.summary()  # print a summary
+
+# plot traces and posteriors
+fig, axes = dyplot.traceplot(res, 
+                             show_titles=True, title_kwargs={'fontsize': 28, 'y': 1.05},
+                             trace_cmap='plasma', kde=False,
+                             connect=True, connect_highlight=range(5),
+                             fig=plt.subplots(ndim, 2, figsize=(14, 12)))
+fig.tight_layout()
+plt.savefig(path+'traces_and_posteriors.png')
 
 # plot corner plots
 # initialize figure
