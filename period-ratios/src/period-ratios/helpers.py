@@ -1,33 +1,8 @@
-from jax.config import config
-
-config.update("jax_enable_x64", True)
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import tensorflow_probability.substrates.jax as tfp
-import jax
-from jax import random, numpy as jnp, tree_map, vmap, jit
-from jax import vmap
-
-from jaxns import ExactNestedSampler
-from jaxns import Model
-from jaxns import PriorModelGen, Prior
-from jaxns import TerminationCondition
-from jaxns.internals.log_semiring import LogSpace
-
 import itertools
 from itertools import combinations
-
-def times_one(x):
-    return 1*x
-    
-### callback tracer
-@jit
-def numpy_callback(x):
-  # Need to forward-declare the shape & dtype of the expected output.
-  result_shape = jax.core.ShapedArray(x.shape, x.dtype)
-  return jax.pure_callback(np.sin, result_shape, x)
 
 def quotient(a, b):
     return max(a,b)/min(a,b)
