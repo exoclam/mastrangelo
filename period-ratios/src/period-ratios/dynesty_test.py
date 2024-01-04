@@ -5,6 +5,7 @@ from math import lgamma
 from helpers import period_ratios
 import dynesty
 from dynesty import plotting as dyplot
+from dynesty import utils
 
 import matplotlib.pylab as pylab
 params = {'legend.fontsize': 'medium',
@@ -113,12 +114,12 @@ def generate_model(timescale, end, formation):
     return lam
 
 # initialize our nested sampler
-sampler = dynesty.NestedSampler(loglikelihood, prior_transform, ndim, nlive=1000, 
+sampler = dynesty.NestedSampler(loglikelihood, prior_transform, ndim, nlive=1500, 
                                rstate=rstate)
 
 # sample from the target distribution
-sampler = dynesty.restore(path+'nested_run.sav')
-sampler.run_nested(dlogz=0.01, checkpoint_file=path+'nested_run2.sav', resume=True)
+#sampler = utils.restore_sampler(path+'nested_run2.sav')
+sampler.run_nested(dlogz=0.005, checkpoint_file=path+'nested_run.sav', resume=True)
 
 res = sampler.results  # grab our results
 print('Keys:', res.keys(),'\n')  # print accessible keys
@@ -131,7 +132,7 @@ fig, axes = dyplot.traceplot(res,
                              connect=True, connect_highlight=range(5),
                              fig=plt.subplots(ndim, 2, figsize=(14, 12)))
 fig.tight_layout()
-plt.savefig(path+'traces_and_posteriors2.png')
+plt.savefig(path+'traces_and_posteriors3.png')
 
 # plot corner plots
 # initialize figure
@@ -146,4 +147,4 @@ fg, ax = dyplot.cornerplot(res, color='blue',
                            show_titles=True, max_n_ticks=3, title_kwargs={'y': 1.05},
                            quantiles=None, fig=(fig, axes[:, :3]))
 
-plt.savefig(path+'corner2.png')
+plt.savefig(path+'corner3.png')
