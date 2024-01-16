@@ -21,6 +21,8 @@ path = '/home/c.lam/blue/period-ratios/'
 output_path = path+'out/'
 kepler_planet_enriched = pd.read_csv(path+'data/pnum_plus_cands_fgk.csv')
 
+cube = [0, 0, 0]
+
 def prior_transform(cube, gi_a, gi_b, gi_c):
 
 	"""
@@ -144,31 +146,31 @@ def generate_model(timescale, end, formation):
     print("model: ", (timescale, end, formation), "yield: ", lam)
     return lam
 
-def main_recovery(cube, ndim, nparams):
-	"""
-	CREATE 30 REALIZATIONS FOR EACH STAR, USING ERRORS.
-	FOR EACH REALIZATION, COMPARE 
-	"""
-
+def main_recovery(cube):
+    """
+    CREATE 30 REALIZATIONS FOR EACH STAR, USING ERRORS.
+    FOR EACH REALIZATION, COMPARE 
+    """
     gi_as = []
     gi_bs = []
     models = []
     logLs = []
-	for gi_a in range(20):
-		for gi_b in range(11):				
-			for gi_c in range(11): 
+    for gi_a in range(20):
+        print(gi_a)
+        for gi_b in range(11):				
+            for gi_c in range(11): 
 
                 gi_as.append(gi_a)
                 gi_bs.append(gi_b)
 
-				# fetch hyperparams
-				cube = prior_transform(cube, gi_m, gi_b, gi_c)
-				timescale, end, formation = cube[0], cube[1], cube[2]
+                # fetch hyperparams
+                cube = prior_transform(cube, gi_m, gi_b, gi_c)
+                timescale, end, formation = cube[0], cube[1], cube[2]
 
                 # for each model, draw 30 times and generate yields
                 lams = []
-				for i in range(30):
-					lam = generate_model(timescale, end, formation)
+                for i in range(30):
+                    lam = generate_model(timescale, end, formation)
                     lams.append(lam)
 
                 model = np.mean(lams, axis=1) # element-wise average
@@ -178,12 +180,12 @@ def main_recovery(cube, ndim, nparams):
                 logL = better_loglike(model, k)
                 logLs.append(logL)
 
-    output = pd.DataFrame('timescale': gi_as, 'end': gi_bs, 'formation': np.repeat(np.linspace(0, 1, 11)),
-        'model': models, 'logL': logLs)
+    output = pd.DataFrame({'timescale': gi_as, 'end': gi_bs, 'formation': np.repeat(np.linspace(0, 1, 11)),
+        'model': models, 'logL': logLs})
     print(output)
 
     output.to_csv(output_path+'output.csv', index=False)
 
-	return
+    return
 
-main_recovery(cube, ndim, nparams)
+main_recovery(cube)
