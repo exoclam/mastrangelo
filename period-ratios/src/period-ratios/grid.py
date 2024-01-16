@@ -3,9 +3,6 @@ import numpy as np
 import pandas as pd
 from math import lgamma
 from helpers import period_ratios
-import dynesty
-from dynesty import plotting as dyplot
-from dynesty import utils
 
 import matplotlib.pylab as pylab
 params = {'legend.fontsize': 'medium',
@@ -21,26 +18,32 @@ k = np.array([6., 9., 22., 10.])
 # set path for input
 path = '/Users/chrislam/Desktop/mastrangelo/'
 path = '/home/c.lam/blue/period-ratios/'
+output_path = path+'out/'
 kepler_planet_enriched = pd.read_csv(path+'data/pnum_plus_cands_fgk.csv')
 
-# reset path for outputs
-#path = path+'period-ratios/'
+def prior_transform(cube, gi_a, gi_b, gi_c):
 
-# dynesty initialization prep
-rstate = np.random.default_rng(819)
-ndim = 3  
-cube = np.zeros(ndim)
+	"""
+	Each model run will use an evenly spaced tuple on a discrete 20 x 10 x 20 grid
 
-def prior_transform(cube):
+    Inputs:
+    - gi_a: log timescale at which dynamical sculpting of period ratios occurs
+    - gi_b: possible end states of period ratios within the relevant period ratio window
+    - gi_c: probability of a system following in-situ formation (random distribution) or migration
+
+    Outputs:
+    - cube of populated hyperparameters
+
 	"""
-	
-	"""
-	cube[0] = 10**np.random.uniform(8,10) 
-	cube[1] = np.random.uniform(1.5,1.6)
-	cube[2] = np.random.uniform(0,1) 
+
+	cube[0] = np.logspace(8, 10, 20)[gi_a]
+	cube[1] = np.linspace(1.5, 1.6, 11)[gi_b]
+	cube[2] = np.linspace(0, 1, 11)[gi_c]
+
 	return cube
 
 def loglikelihood(cube): # timescale, end, formation
+
     timescale, end, formation = cube[0], cube[1], cube[2]
     lam = generate_model(timescale, end, formation)
 
@@ -60,6 +63,35 @@ def loglikelihood(cube): # timescale, end, formation
 
     return np.sum(logL)
 
+def better_loglike(lam, k):
+	"""
+	Calculate Poisson log likelihood
+	Changed 0 handling from simulate.py to reflect https://www.aanda.org/articles/aa/pdf/2009/16/aa8472-07.pdf
+
+	Params: 
+	- lam: model predictions for transit multiplicity (list of ints)
+	- k: Kepler transit multiplicity (list of ints); can accept alternate ground truths as well
+
+	Returns: Poisson log likelihood (float)
+	"""
+
+	logL = []
+	#print(lam)
+	for i in range(len(lam)):
+		if lam[i]==0:
+			term3 = -lgamma(k[i]+1)
+			term2 = -lam[i]
+			term1 = 0
+			logL.append(term1+term2+term3)
+
+		else:
+			term3 = -lgamma(k[i]+1)
+			term2 = -lam[i]
+			term1 = k[i]*np.log(lam[i])
+			logL.append(term1+term2+term3)
+
+	return np.sum(logL)
+
 def generate_model(timescale, end, formation):
     """
     Reassign period ratios for multi-planet systems in the Kepler sample
@@ -78,8 +110,7 @@ def generate_model(timescale, end, formation):
     uniques = df.drop_duplicates(subset=['kepid'])
 
     # draw age
-    uniques['iso_age_err'] = 0.5 * (uniques.iso_age_err1 + np.abs(uniques.iso_age_err2))
-    uniques['age'] = np.random.normal(uniques.iso_age, uniques.iso_age_err)
+    uniques['age'] = np.random.uniform(uniques.iso_age + uniques.iso_age_err2, uniques.iso_age + uniques.iso_age_err1)
     
     # break back out into planet rows and forward fill across systems
     df = uniques.merge(df, how='right')
@@ -113,43 +144,46 @@ def generate_model(timescale, end, formation):
     print("model: ", (timescale, end, formation), "yield: ", lam)
     return lam
 
-# initialize our nested sampler
-sampler = dynesty.NestedSampler(loglikelihood, prior_transform, ndim, nlive=1500, 
-                               rstate=rstate)
+def main_recovery(cube, ndim, nparams):
+	"""
+	CREATE 30 REALIZATIONS FOR EACH STAR, USING ERRORS.
+	FOR EACH REALIZATION, COMPARE 
+	"""
 
-# sample from the target distribution
-#sampler = utils.restore_sampler(path+'nested_run.sav')
-sampler.run_nested(dlogz=0.001, checkpoint_file=path+'nested_run2.sav', resume=True)
+    gi_as = []
+    gi_bs = []
+    models = []
+    logLs = []
+	for gi_a in range(20):
+		for gi_b in range(11):				
+			for gi_c in range(11): 
 
-res = sampler.results  # grab our results
-print('Keys:', res.keys(),'\n')  # print accessible keys
-res.summary()  # print a summary
+                gi_as.append(gi_a)
+                gi_bs.append(gi_b)
 
-# plot traces and posteriors
-fig, axes = dyplot.traceplot(res, 
-                             show_titles=True, title_kwargs={'fontsize': 28, 'y': 1.05},
-                             trace_cmap='plasma', kde=False,
-                             connect=True, connect_highlight=range(5),
-                             fig=plt.subplots(ndim, 2, figsize=(14, 12)))
-fig.tight_layout()
-plt.savefig(path+'traces_and_posteriors4.png')
+				# fetch hyperparams
+				cube = prior_transform(cube, gi_m, gi_b, gi_c)
+				timescale, end, formation = cube[0], cube[1], cube[2]
 
-# plot corner plots
-# initialize figure
-fig, axes = plt.subplots(3, 7, figsize=(35, 15))
-axes = axes.reshape((3, 7))
-[a.set_frame_on(False) for a in axes[:, 3]]
-[a.set_xticks([]) for a in axes[:, 3]]
-[a.set_yticks([]) for a in axes[:, 3]]
+                # for each model, draw 30 times and generate yields
+                lams = []
+				for i in range(30):
+					lam = generate_model(timescale, end, formation)
+                    lams.append(lam)
 
-# plot noiseless run (left)
-fg, ax = dyplot.cornerplot(res, color='blue', 
-                           show_titles=True, max_n_ticks=3, title_kwargs={'y': 1.05},
-                           quantiles=None, fig=(fig, axes[:, :3]))
+                model = np.mean(lams, axis=1) # element-wise average
+                models.append(model)
 
-plt.savefig(path+'corner4.png')
+                # calculate logLs
+                logL = better_loglike(model, k)
+                logLs.append(logL)
 
-# plot analytic and numerical evidence 
-fig, axes = dyplot.runplot(res, color='blue')
-fig.tight_layout()
-plt.savefig(path+'evidence.png')
+    output = pd.DataFrame('timescale': gi_as, 'end': gi_bs, 'formation': np.repeat(np.linspace(0, 1, 11)),
+        'model': models, 'logL': logLs)
+    print(output)
+
+    output.to_csv(output_path+'output.csv', index=False)
+
+	return
+
+main_recovery(cube, ndim, nparams)
