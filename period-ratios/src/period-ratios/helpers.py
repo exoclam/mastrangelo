@@ -22,6 +22,7 @@ def period_ratios(df):
     all_ratios = []
     ages = []
     kepids = []
+    formation_flags = []
     for i in np.unique(df.kepid):
         system = df.loc[df.kepid == i]
         
@@ -34,14 +35,16 @@ def period_ratios(df):
                 all_ratios.append(quotient(*pair))
                 ages.append(system.reset_index().age.iloc[0])
                 kepids.append(system.reset_index().kepid.iloc[0])
+                formation_flags.append(system.reset_index().formation_flag.iloc[0])
 
     all_ratios = np.array(all_ratios)
     ages = np.array(ages)
     kepids = np.array(kepids)
+    formation_flags = np.array(formation_flags)
 
     #return kepids, ages, all_ratios 
     #tf.data.Dataset.from_tensor_slices((numeric_features, target))
-    all = pd.DataFrame({'kepid': kepids, 'age': ages, 'ratio': all_ratios})
+    all = pd.DataFrame({'kepid': kepids, 'age': ages, 'ratio': all_ratios, 'formation_flag': formation_flags})
 
     # keep only rows in relevant period ratio range
     keep = all.loc[(all.ratio <= 1.5+0.1) & (all.ratio >= 1.5-0.1)]

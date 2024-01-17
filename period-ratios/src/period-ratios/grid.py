@@ -16,7 +16,7 @@ pylab.rcParams.update(params)
 k = np.array([6., 9., 22., 10.])
 
 # set path for input
-path = '/Users/chrislam/Desktop/mastrangelo/'
+#path = '/Users/chrislam/Desktop/mastrangelo/'
 path = '/home/c.lam/blue/period-ratios/'
 output_path = path+'out/'
 kepler_planet_enriched = pd.read_csv(path+'data/pnum_plus_cands_fgk.csv')
@@ -66,33 +66,32 @@ def loglikelihood(cube): # timescale, end, formation
     return np.sum(logL)
 
 def better_loglike(lam, k):
-	"""
-	Calculate Poisson log likelihood
-	Changed 0 handling from simulate.py to reflect https://www.aanda.org/articles/aa/pdf/2009/16/aa8472-07.pdf
+    """
+    Calculate Poisson log likelihood
+    Changed 0 handling from simulate.py to reflect https://www.aanda.org/articles/aa/pdf/2009/16/aa8472-07.pdf
 
-	Params: 
-	- lam: model predictions for transit multiplicity (list of ints)
-	- k: Kepler transit multiplicity (list of ints); can accept alternate ground truths as well
+    Params: 
+    - lam: model predictions for transit multiplicity (list of ints)
+    - k: Kepler transit multiplicity (list of ints); can accept alternate ground truths as well
 
-	Returns: Poisson log likelihood (float)
-	"""
+    Returns: Poisson log likelihood (float)
+    """
 
-	logL = []
-	#print(lam)
-	for i in range(len(lam)):
-		if lam[i]==0:
-			term3 = -lgamma(k[i]+1)
-			term2 = -lam[i]
-			term1 = 0
-			logL.append(term1+term2+term3)
+    logL = []
+    for i in range(len(lam)):
+        if lam[i]==0:
+            term3 = -lgamma(k[i]+1)
+            term2 = -lam[i]
+            term1 = 0
+            logL.append(term1+term2+term3)
 
-		else:
-			term3 = -lgamma(k[i]+1)
-			term2 = -lam[i]
-			term1 = k[i]*np.log(lam[i])
-			logL.append(term1+term2+term3)
+        else:
+            term3 = -lgamma(k[i]+1)
+            term2 = -lam[i]
+            term1 = k[i]*np.log(lam[i])
+            logL.append(term1+term2+term3)
 
-	return np.sum(logL)
+    return np.sum(logL)
 
 def generate_model(timescale, end, formation):
     """
@@ -113,6 +112,10 @@ def generate_model(timescale, end, formation):
 
     # draw age
     uniques['age'] = np.random.uniform(uniques.iso_age + uniques.iso_age_err2, uniques.iso_age + uniques.iso_age_err1)
+
+    ### for each system, choose planet formation mechanism based on "formation" probability
+    formation_flag = np.random.choice(a=[0,1], size=len(uniques), p=[1-formation, formation]) # from in-situ to migration
+    uniques['formation_flag'] = formation_flag
     
     # break back out into planet rows and forward fill across systems
     df = uniques.merge(df, how='right')
@@ -121,12 +124,7 @@ def generate_model(timescale, end, formation):
     # keep only planet pairs in relevant period ratio range
     keep = period_ratios(df)
 
-    ### for each system, choose planet formation mechanism based on "formation" probability
-    formation_flag = np.random.choice(a=[0,1], size=len(keep), p=[formation, 1-formation])
-    keep['formation_flag'] = formation_flag
-
     # select rows where second column value < threshold; set third column to commensurability
-    #keep[keep[:,1] > 4, 2] = 1.5
     in_situ = keep.loc[keep.formation_flag == 0]
     migration = keep.loc[keep.formation_flag == 1]
 
@@ -164,7 +162,7 @@ def main_recovery(cube):
                 gi_bs.append(gi_b)
 
                 # fetch hyperparams
-                cube = prior_transform(cube, gi_m, gi_b, gi_c)
+                cube = prior_transform(cube, gi_a, gi_b, gi_c)
                 timescale, end, formation = cube[0], cube[1], cube[2]
 
                 # for each model, draw 30 times and generate yields
@@ -173,7 +171,7 @@ def main_recovery(cube):
                     lam = generate_model(timescale, end, formation)
                     lams.append(lam)
 
-                model = np.mean(lams, axis=1) # element-wise average
+                model = np.mean(lams, axis=0) # element-wise average
                 models.append(model)
 
                 # calculate logLs
