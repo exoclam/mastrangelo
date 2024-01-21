@@ -153,10 +153,10 @@ def main_recovery(cube):
     gi_bs = []
     models = []
     logLs = []
-    for gi_a in range(20):
+    for gi_a in range(20): # 20
         print(gi_a)
-        for gi_b in range(11):				
-            for gi_c in range(11): 
+        for gi_b in range(11): # 11			
+            for gi_c in range(11): # 11
 
                 gi_as.append(gi_a)
                 gi_bs.append(gi_b)
@@ -167,7 +167,7 @@ def main_recovery(cube):
 
                 # for each model, draw 30 times and generate yields
                 lams = []
-                for i in range(30):
+                for i in range(10): # 30
                     lam = generate_model(timescale, end, formation)
                     lams.append(lam)
 
@@ -178,7 +178,7 @@ def main_recovery(cube):
                 logL = better_loglike(model, k)
                 logLs.append(logL)
 
-    output = pd.DataFrame({'timescale': gi_as, 'end': gi_bs, 'formation': np.repeat(np.linspace(0, 1, 11)),
+    output = pd.DataFrame({'timescale': gi_as, 'end': gi_bs, 'formation': np.repeat(np.linspace(0, 1, 3), 3*3),
         'model': models, 'logL': logLs})
     print(output)
 
