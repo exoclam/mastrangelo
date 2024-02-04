@@ -178,7 +178,7 @@ def main_recovery(cube):
                 logL = better_loglike(model, k)
                 logLs.append(logL)
 
-    output = pd.DataFrame({'timescale': gi_as, 'end': gi_bs, 'formation': np.repeat(np.linspace(0, 1, 3), 3*3),
+    output = pd.DataFrame({'timescale': gi_as, 'end': gi_bs, 'formation': np.repeat(np.linspace(0, 1, 11), 20*11),
         'model': models, 'logL': logLs})
     print(output)
 
