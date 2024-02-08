@@ -494,6 +494,84 @@ def draw_cdpp_array(star_radius, df):
     cdpp = [draw_cdpp(sr, berger_kepler) for sr in star_radius]
     return cdpp
 
+def make_pdf_rows(x, mode, err1, err2):
+    """
+    Row-wise likelihood of asymmetric uncertainty, using Eqn 6 from https://iopscience.iop.org/article/10.3847/1538-3881/abd93f
+    Less efficient, but row-wise in order to troubleshoot. 
+    Takes in scalar values for mode, err1, and err2, not arrays.
+
+    Input:
+    - x: np.linspace(0.5, 10, 100); just something to undergird the PDF and represent stellar ages
+    - mode: mean age; peak of asymmetric PDF
+    - err1: + uncertainty
+    - err2: - uncertainty (note: must be positive)
+
+    Output:
+    - pdf: asymmetric PDF
+
+    """
+    
+    factor1 = 1/np.sqrt(2*np.pi*err1**2) 
+    beta = err1/err2
+    gamma = (err1 - np.abs(err2))/(err1 * np.abs(err2))
+    
+    factor2_arg_a = np.log(1+gamma*(x - mode))
+    factor2_arg_b = np.log(beta)
+    factor2_arg = factor2_arg_a/factor2_arg_b
+    factor2 = np.exp(-0.5*(factor2_arg)**2)
+
+    if np.isnan(factor1*factor2).all():
+        print(mode, err1, err2)
+
+    out = factor1 * factor2
+    out[~np.isfinite(out)] = 0.0
+    
+    return out
+
+def draw_star_ages(df):
+    """
+    Draw star's age, taking into account asymmetric age errors. Enriches input DataFrame.
+    """
+
+    # in case df is broken up by planet and not star
+    uniques = df.drop_duplicates(subset=['kepid'])
+
+    x = np.linspace(0.5, 10, 100)
+    ages = np.ones(len(uniques))
+    for i in range(len(uniques)):
+        mode = uniques.iloc[i].iso_age
+        err1 = uniques.iloc[i].iso_age_err1
+        err2 = np.abs(uniques.iloc[i].iso_age_err2)
+
+        # symmetric age uncertainties
+        if err1==err2:
+            age = 0
+            while age <= 0: # make sure the age is positive
+                age = np.random.normal(mode, err1)
+
+        # asymmetric uncertainties
+        elif err1!=err2:
+            pdf = make_pdf_rows(x, mode, err1, err2)
+            pdf = pdf/np.sum(pdf)
+            try:
+                age = 0
+                while age <= 0:
+                    age = np.random.choice(x, p=pdf)
+            except:
+                print(i, pdf, mode, err1, err2)
+                break
+        
+        
+    ages[i] = age
+    df['age'] = ages
+
+    # break back out into planet rows and forward fill across systems
+    df = uniques.merge(df, how='right')
+    df['age'] = df.age.fillna(method='ffill')
+
+
+    return df 
+
 def draw_star(df):
     """
     Draw star's age, metallicity, and effective temperature based on given errors. Enrich input DataFrame.
@@ -503,7 +581,8 @@ def draw_star(df):
     uniques = df.drop_duplicates(subset=['kepid'])
 
     # draw age
-    uniques['iso_age_err'] = 0.5 * (uniques.iso_age_err1 + np.abs(uniques.iso_age_err2))
+    uniques['iso_age_err'] = 0.5 * (uniques.iso_age_err1 + np.abs(uniques.iso_age_err2)) # old way
+
     uniques['age'] =  np.random.normal(uniques.iso_age, uniques.iso_age_err)
 
     # draw metallicity...if I do feh instead of iso_feh, do I get a lot of NaNs??

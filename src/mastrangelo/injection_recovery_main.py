@@ -210,7 +210,7 @@ def main_recovery(cube, ndim, nparams):
 					
 					if output_filename not in done:
 
-						berger_kepler_planets = model_vectorized(berger_kepler_temp, 'limbach-hybrid', cube, bootstrap=True)
+						berger_kepler_planets = model_vectorized(berger_kepler_temp, 'rayleigh', cube, bootstrap=True)
 						berger_kepler_planets = berger_kepler_planets[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
 								'iso_age', 'iso_age_err1', 'iso_age_err2', 'logR','is_giant','fractional_err1','fractional_err2','prob_intact','midplanes',
 								'intact_flag','sigma','num_planets','P','incl','mutual_incl','ecc','omega','lambda_ks','second_terms','geom_transit_status','transit_status',
