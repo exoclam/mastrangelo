@@ -25,6 +25,8 @@ path = '/Users/chris/Desktop/mastrangelo/' # new computer has different username
 #pnum = pd.read_csv(path+'data/pnum_plus_cands_fgk.csv') # planet hosts among crossmatched Berger sample
 #k = pnum.groupby('kepid').count().koi_count.reset_index().groupby('koi_count').count()
 k = pd.Series([833, 134, 38, 15, 5, 0])
+k_score = pd.Series([631, 115, 32, 10, 4, 0])
+k_fpp = pd.Series([1088, 115, 34, 9, 3, 0])
 G = 6.6743e-8 # gravitational constant in cgs
 
 # set up hypercube just so I can associate logLs with correct hyperparams
@@ -105,7 +107,7 @@ def normal_loglike(x, mu, sigma):
 	return logL
 
 
-def collect(df, f, transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs):
+def collect(df, f, transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs, logLs_score, logLs_fpp):
 	
 	"""
 	Compute geometric and detected transit multiplicities, intact/disrupted fractions, and log likelihood.
@@ -143,6 +145,10 @@ def collect(df, f, transit_multiplicities, geom_transit_multiplicities, intact_f
 	# calculate logLs 
 	logL = better_loglike(transit_multiplicity, k)
 	logLs.append(logL)
+	logL_score = better_loglike(transit_multiplicity, k_score)
+	logLs_score.append(logL_score)
+	logL_fpp = better_loglike(transit_multiplicity, k_fpp)
+	logLs_fpp.append(logL_fpp)
 
 	# get intact and disrupted fractions (combine them later to get fraction of systems w/o planets)
 	intact = df.loc[df.intact_flag=='intact']
@@ -152,7 +158,7 @@ def collect(df, f, transit_multiplicities, geom_transit_multiplicities, intact_f
 	intact_fracs.append(intact_frac)
 	disrupted_fracs.append(disrupted_frac)
 
-	return transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs
+	return transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs, logLs_score, logLs_fpp
 
 
 def collect_past_ii(df, f):
@@ -229,6 +235,8 @@ geom_transit_multiplicities = []
 intact_fracs = []
 disrupted_fracs = []
 logLs = []
+logLs_score = []
+logLs_fpp = []
 """
 nontransit_age_maxes = []
 nontransit_age_mins = []
@@ -302,7 +310,7 @@ for gi_m in range(6):
 		for gi_c in range(11):
 			
 			try:
-				sim = glob(output_path+'systems2/transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
+				sim = glob(output_path+'systems-recovery-asymmetric/transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
 				#sim = glob(output_path+'systems-ten/transits'+str(gi_m)+'_'+str(gi_b)+'_1*')
 			except:
 				print("file not found: ", 'transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
@@ -321,7 +329,7 @@ for gi_m in range(6):
 
 					# populate future columns for output DataFrame
 					try: # Some sim dfs got corrupted in HPG. We skip these. 
-						transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs = collect(df, f, transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs)
+						transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs, logLs_score, logLs_fpp = collect(df, f, transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs, logLs_score, logLs_fpp)
 						#nontransit_age_max, nontransit_age_min, ones_age_max, ones_age_min, twos_age_max, twos_age_min, threes_age_max, threes_age_min = collect_past_ii(df, f)
 						ms.append(cube[0])
 						bs.append(cube[1])
@@ -346,14 +354,14 @@ for gi_m in range(6):
 #print("TIME ELAPSED: ", end-start)
 
 df_logL = pd.DataFrame({'ms': ms, 'bs': bs, 'cs': cs, 'fs': fs, 'transit_multiplicities': transit_multiplicities, 
-			'geom_transit_multiplicities': geom_transit_multiplicities, 'intact_fracs': intact_fracs, 'disrupted_fracs': disrupted_fracs, 'logLs': logLs})
+			'geom_transit_multiplicities': geom_transit_multiplicities, 'intact_fracs': intact_fracs, 'disrupted_fracs': disrupted_fracs, 'logLs': logLs, 'logLs_score': logLs_score, 'logLs_fpp': logLs_fpp})
 			
 	#'nontransit_age_maxes': nontransit_age_maxes, 'nontransit_age_mins': nontransit_age_mins, 'ones_age_maxes': ones_age_maxes, 
 	#'ones_age_mins': ones_age_mins, 'twos_age_maxes': twos_age_maxes, 'twos_age_mins': twos_age_mins,
 	#'threes_age_maxes': threes_age_maxes, 'threes_age_mins': threes_age_mins})
 print(df_logL)
 
-df_logL.to_csv(output_path+'collect_ground_truth2.csv', index=False) # collect_ is for transit multiplicity; past_ii_ is for age vs multiplicity
+df_logL.to_csv(output_path+'collect_recovery_asymmetric.csv', index=False) # collect_ is for transit multiplicity; past_ii_ is for age vs multiplicity
 
 quit()
 
