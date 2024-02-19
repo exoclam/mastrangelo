@@ -93,7 +93,7 @@ def better_loglike(lam, k):
 
     return np.sum(logL)
 
-def generate_model(timescale, end, formation):
+def generate_model(kepler_planet_enriched, timescale, end, formation):
     """
     Reassign period ratios for multi-planet systems in the Kepler sample
 
@@ -127,11 +127,11 @@ def generate_model(timescale, end, formation):
     # select rows where second column value < threshold; set third column to commensurability
     in_situ = keep.loc[keep.formation_flag == 0]
     migration = keep.loc[keep.formation_flag == 1]
-
+    
     # re-assign period ratios
     in_situ.ratio = np.random.uniform(low=1.4, high=1.6, size=len(in_situ))
-    migration.loc[migration.age < timescale].ratio = 1.5
-    migration.loc[migration.age >= timescale].ratio = end
+    migration.loc[migration.age < timescale, 'ratio'] = 1.5
+    migration.loc[migration.age >= timescale, 'ratio'] = end
 
     # re-combine DataFrames
     keep = pd.concat([in_situ, migration])
@@ -158,8 +158,8 @@ def main_recovery(cube):
         for gi_b in range(11): # 11			
             for gi_c in range(11): # 11
 
-                gi_as.append(gi_a)
-                gi_bs.append(gi_b)
+                gi_as.append(np.logspace(8, 10, 20)[gi_a])
+                gi_bs.append(np.linspace(1.5, 1.6, 11)[gi_b])
 
                 # fetch hyperparams
                 cube = prior_transform(cube, gi_a, gi_b, gi_c)
@@ -168,7 +168,7 @@ def main_recovery(cube):
                 # for each model, draw 30 times and generate yields
                 lams = []
                 for i in range(10): # 30
-                    lam = generate_model(timescale, end, formation)
+                    lam = generate_model(kepler_planet_enriched, timescale, end, formation)
                     lams.append(lam)
 
                 model = np.mean(lams, axis=0) # element-wise average
@@ -178,12 +178,22 @@ def main_recovery(cube):
                 logL = better_loglike(model, k)
                 logLs.append(logL)
 
-    output = pd.DataFrame({'timescale': gi_as, 'end': gi_bs, 'formation': np.repeat(np.linspace(0, 1, 11), 20*11),
+    output = pd.DataFrame({'timescale': gi_as, 'end': gi_bs, 'formation': np.tile(np.arange(11)*0.1, 20*11),
         'model': models, 'logL': logLs})
     print(output)
 
     output.to_csv(output_path+'output.csv', index=False)
 
     return
+
+"""
+UNIT TEST
+
+lam = generate_model(kepler_planet_enriched, 1e8, 1.6, 0.)
+#print(lam)
+#plt.plot(np.arange(1.4, 1.6, 0.05)[:-1], lam)
+plt.show()
+quit()
+"""
 
 main_recovery(cube)

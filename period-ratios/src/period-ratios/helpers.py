@@ -28,11 +28,20 @@ def period_ratios(df):
         
         if len(system) > 1: # if multi
 
+            """
+            # old way: takes all pairs
             pairs = itertools.combinations(system.koi_period, r=2)
-            
             for pair in pairs:
 
                 all_ratios.append(quotient(*pair))
+                ages.append(system.reset_index().age.iloc[0])
+                kepids.append(system.reset_index().kepid.iloc[0])
+                formation_flags.append(system.reset_index().formation_flag.iloc[0])
+            """
+                        
+            # new way: only takes adjacent pairs
+            for previous, current in zip(np.sort(np.array(system.koi_period)), np.sort(np.array(system.koi_period))[1:]):
+                all_ratios.append(quotient(current, previous))
                 ages.append(system.reset_index().age.iloc[0])
                 kepids.append(system.reset_index().kepid.iloc[0])
                 formation_flags.append(system.reset_index().formation_flag.iloc[0])
