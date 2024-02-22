@@ -553,16 +553,17 @@ def draw_star_ages(df):
         elif err1!=err2:
             pdf = make_pdf_rows(x, mode, err1, err2)
             pdf = pdf/np.sum(pdf)
+
             try:
                 age = 0
-                while age <= 0:
+                while age <= 0: # make sure the age is positive
                     age = np.random.choice(x, p=pdf)
             except:
                 print(i, pdf, mode, err1, err2)
                 break
         
-        
-    ages[i] = age
+        ages[i] = age
+
     df['age'] = ages
 
     # break back out into planet rows and forward fill across systems

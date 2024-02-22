@@ -25,8 +25,9 @@ from simulate_helpers import *
 
 input_path = '/blue/sarahballard/c.lam/sculpting2/' # HPG
 output_path = '/blue/sarahballard/c.lam/sculpting2/mastrangelo/' # HPG
-#path = '/Users/chris/Desktop/mastrangelo/' # new computer has different username
+path = '/Users/chrislam/Desktop/mastrangelo/' # new computer has different username
 berger_kepler = pd.read_csv(input_path+'berger_kepler_stellar_fgk.csv') # crossmatched with Gaia via Bedell
+#berger_kepler = pd.read_csv(path+'data/berger_kepler_stellar_fgk.csv') # crossmatched with Gaia via Bedell
 
 ### re-make planetary systems assuming an idealized case of 10% age errors 
 #berger_kepler = pd.read_csv(input_path+'berger_kepler_stellar_loguniform.csv') 
@@ -167,7 +168,7 @@ def main_recovery(cube, ndim, nparams):
 	"""
 
 	done = glob(output_path+'systems-recovery/transits*')
-
+	
 	# do the trivial case of everybody is disrupted, just once
 	#cube = prior_grid_logslope(cube, ndim, nparams, 0, 0, 0)
 	"""
@@ -204,9 +205,9 @@ def main_recovery(cube, ndim, nparams):
 				cube = prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c)
 				
 				for i in range(30):
-					berger_kepler_temp = draw_star(berger_kepler)
-					#output_filename = output_path + 'systems-recovery/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
-					output_filename = output_path + 'systems-recovery/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
+					#berger_kepler_temp = draw_star(berger_kepler) # N/A now that I'm creating a catalog of random ages up front
+					berger_kepler_temp = berger_kepler_temps[i] # select from catalog of DFs with randomly sampled ages
+					output_filename = output_path + 'systems-recovery-asymmetric/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
 					
 					if output_filename not in done:
 
@@ -244,4 +245,15 @@ print("elapsed non-vectorized: ", end-start)
 # it was 171 seconds, or about 6 times slower 
 """
 
+"""
+CREATE CATALOG OF RANDOM STELLAR AGES USING DRAW_STAR_AGES()
+"""
+berger_kepler_temps = []
+for i in range(30):
+	# draw_star_ages() returns the original dataframe, plus a sampled age column
+	berger_kepler_temps.append(draw_star_ages(berger_kepler))
+
+"""
+THEN WE CAN GENERATE THE SYNTHETIC PLANET POPULATIONS
+"""
 main_recovery(cube, ndim, nparams)
