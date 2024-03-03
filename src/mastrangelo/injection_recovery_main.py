@@ -205,8 +205,8 @@ def main_recovery(cube, ndim, nparams):
 					cube = prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c)
 					
 					for i in range(30):
-						#berger_kepler_temp = draw_star(berger_kepler) # N/A now that I'm creating a catalog of random ages up front
-						berger_kepler_temp = berger_kepler_temps[i] # select from catalog of DFs with randomly sampled ages
+						berger_kepler_temp = draw_star_ages(berger_kepler) 
+						#berger_kepler_temp = berger_kepler_temps[i] # select from catalog of DFs with randomly sampled ages
 						#output_filename = output_path + 'systems-recovery-asymmetric/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
 						output_filename = output_path + 'systems-recovery-asymmetric-redo/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
 
