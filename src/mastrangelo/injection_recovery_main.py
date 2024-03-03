@@ -144,10 +144,10 @@ def main_ground_truth(cube, ndim, nparams):
 				cube = prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c)
 
 				# generate filename
-				output_filename = output_path + 'systems-recovery/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '.csv'
+				output_filename = output_path + 'systems-asymmetric/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '.csv'
 
 				if output_filename not in done:
-					berger_kepler_planets = model_vectorized(berger_kepler, 'limbach-hybrid', cube, bootstrap=False)
+					berger_kepler_planets = model_vectorized(berger_kepler, 'rayleigh', cube, bootstrap=False)
 					berger_kepler_planets = berger_kepler_planets[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
 							'iso_age', 'iso_age_err1', 'iso_age_err2', 'logR','is_giant','fractional_err1','fractional_err2','prob_intact','midplanes',
 							'intact_flag','sigma','num_planets','P','incl','mutual_incl','ecc','omega','lambda_ks','second_terms','geom_transit_status','transit_status',
@@ -200,30 +200,31 @@ def main_recovery(cube, ndim, nparams):
 				
 			for gi_c in range(11): 
 
-				#if gi_c == 1:
-				# fetch hyperparams
-				cube = prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c)
-				
-				for i in range(30):
-					#berger_kepler_temp = draw_star(berger_kepler) # N/A now that I'm creating a catalog of random ages up front
-					berger_kepler_temp = berger_kepler_temps[i] # select from catalog of DFs with randomly sampled ages
-					output_filename = output_path + 'systems-recovery-asymmetric/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
+				if gi_c == 1:
+					# fetch hyperparams
+					cube = prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c)
 					
-					if output_filename not in done:
+					for i in range(30):
+						#berger_kepler_temp = draw_star(berger_kepler) # N/A now that I'm creating a catalog of random ages up front
+						berger_kepler_temp = berger_kepler_temps[i] # select from catalog of DFs with randomly sampled ages
+						#output_filename = output_path + 'systems-recovery-asymmetric/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
+						output_filename = output_path + 'systems-recovery-asymmetric-redo/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
 
-						berger_kepler_planets = model_vectorized(berger_kepler_temp, 'rayleigh', cube, bootstrap=True)
-						berger_kepler_planets = berger_kepler_planets[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
-								'iso_age', 'iso_age_err1', 'iso_age_err2', 'logR','is_giant','fractional_err1','fractional_err2','prob_intact','midplanes',
-								'intact_flag','sigma','num_planets','P','incl','mutual_incl','ecc','omega','lambda_ks','second_terms','geom_transit_status','transit_status',
-								'prob_detections','sn', 'age']]
+						if output_filename not in done:
 
-						berger_kepler_planets.to_csv(output_filename, sep='\t')
+							berger_kepler_planets = model_vectorized(berger_kepler_temp, 'rayleigh', cube, bootstrap=True)
+							berger_kepler_planets = berger_kepler_planets[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
+									'iso_age', 'iso_age_err1', 'iso_age_err2', 'logR','is_giant','fractional_err1','fractional_err2','prob_intact','midplanes',
+									'intact_flag','sigma','num_planets','P','incl','mutual_incl','ecc','omega','lambda_ks','second_terms','geom_transit_status','transit_status',
+									'prob_detections','sn', 'age']]
 
-					else:
-						pass
+							berger_kepler_planets.to_csv(output_filename, sep='\t')
+
+						else:
+							pass
 				
-				#else:
-				#	pass
+				else:
+					pass
 
 	return
 
@@ -247,13 +248,15 @@ print("elapsed non-vectorized: ", end-start)
 
 """
 CREATE CATALOG OF RANDOM STELLAR AGES USING DRAW_STAR_AGES()
-"""
+
 berger_kepler_temps = []
 for i in range(30):
 	# draw_star_ages() returns the original dataframe, plus a sampled age column
 	berger_kepler_temps.append(draw_star_ages(berger_kepler))
+"""
 
 """
 THEN WE CAN GENERATE THE SYNTHETIC PLANET POPULATIONS
 """
+#main_ground_truth(cube, ndim, nparams)
 main_recovery(cube, ndim, nparams)

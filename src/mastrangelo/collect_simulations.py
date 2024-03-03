@@ -310,7 +310,8 @@ for gi_m in range(6):
 		for gi_c in range(11):
 			
 			try:
-				sim = glob(output_path+'systems-recovery-asymmetric/transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
+				#sim = glob(output_path+'systems-recovery-asymmetric/transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
+				sim = glob(output_path+'systems-asymmetric/transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
 				#sim = glob(output_path+'systems-ten/transits'+str(gi_m)+'_'+str(gi_b)+'_1*')
 			except:
 				print("file not found: ", 'transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
@@ -361,7 +362,8 @@ df_logL = pd.DataFrame({'ms': ms, 'bs': bs, 'cs': cs, 'fs': fs, 'transit_multipl
 	#'threes_age_maxes': threes_age_maxes, 'threes_age_mins': threes_age_mins})
 print(df_logL)
 
-df_logL.to_csv(output_path+'collect_recovery_asymmetric.csv', index=False) # collect_ is for transit multiplicity; past_ii_ is for age vs multiplicity
+df_logL.to_csv(output_path+'collect_asymmetric.csv', index=False) # collect_ is for transit multiplicity; past_ii_ is for age vs multiplicity
+#df_logL.to_csv(output_path+'collect_recovery_asymmetric.csv', index=False) # collect_ is for transit multiplicity; past_ii_ is for age vs multiplicity
 
 quit()
 
