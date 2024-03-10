@@ -200,7 +200,7 @@ def main_recovery(cube, ndim, nparams):
 				
 			for gi_c in range(11): 
 
-				if gi_c == 1:
+				if (gi_m == 5) & (gi_b == 10) & (gi_c == 1):
 					# fetch hyperparams
 					cube = prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c)
 					
@@ -208,7 +208,7 @@ def main_recovery(cube, ndim, nparams):
 						berger_kepler_temp = draw_star_ages(berger_kepler) 
 						#berger_kepler_temp = berger_kepler_temps[i] # select from catalog of DFs with randomly sampled ages
 						#output_filename = output_path + 'systems-recovery-asymmetric/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
-						output_filename = output_path + 'systems-recovery-asymmetric-redo/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
+						output_filename = output_path + 'systems-recovery-asymmetric-redo-weird/transits' +str(gi_m) + '_' + str(gi_b) + '_' + str(gi_c) + '_' + str(i) + '.csv'
 
 						if output_filename not in done:
 
@@ -258,5 +258,29 @@ for i in range(30):
 """
 THEN WE CAN GENERATE THE SYNTHETIC PLANET POPULATIONS
 """
+
+"""
+One of the 30 realizations of a clearly bad model is falling within the favorable logL range. 
+Redo these to make sure it's not some swapped data or something.
+test_recovery = recovery.loc[(np.round(recovery.ms, 1) == 0.) & (recovery.bs == 1.) & (np.round(recovery.cs, -7) == 1.6e8) & (np.round(recovery.fs,1) == 0.4)]
+
+
+gi_m = 5
+gi_b = 10
+gi_c = 1
+cube = prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c)
+for i in range(30):
+
+	berger_kepler_temp = draw_star_ages(berger_kepler) 
+	berger_kepler_planets = model_vectorized(berger_kepler_temp, 'rayleigh', cube, bootstrap=True)
+	berger_kepler_planets = berger_kepler_planets[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
+			'iso_age', 'iso_age_err1', 'iso_age_err2', 'logR','is_giant','fractional_err1','fractional_err2','prob_intact','midplanes',
+			'intact_flag','sigma','num_planets','P','incl','mutual_incl','ecc','omega','lambda_ks','second_terms','geom_transit_status','transit_status',
+			'prob_detections','sn', 'age']]
+
+
+transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs, logLs_score, logLs_fpp = collect(df, f, transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs, logLs_score, logLs_fpp)
+"""
+
 #main_ground_truth(cube, ndim, nparams)
 main_recovery(cube, ndim, nparams)
