@@ -27,10 +27,10 @@ from simulate_helpers import *
 #path = '/blue/sarahballard/c.lam/sculpting2/'
 
 ### variables for local
-path = '/Users/chris/Desktop/sculpting/' # new computer has different username
-berger_kepler = pd.read_csv(path+'berger_kepler_stellar_fgk.csv') # crossmatched with Gaia via Bedell, previously berger_kepler_stellar17.csv
-pnum = pd.read_csv(path+'pnum_plus_cands_fgk.csv') # previously pnum_plus_cands.csv
-k = pnum.groupby('kepid').count().koi_count.reset_index().groupby('koi_count').count()
+path = '/Users/chrislam/Desktop/mastrangelo/'
+berger_kepler = pd.read_csv(path+'data/berger_kepler_stellar_fgk.csv') # crossmatched with Gaia via Bedell, previously berger_kepler_stellar17.csv
+#pnum = pd.read_csv(path+'pnum_plus_cands_fgk.csv') # previously pnum_plus_cands.csv
+#k = pnum.groupby('kepid').count().koi_count.reset_index().groupby('koi_count').count()
 #k = pd.Series([len(berger_kepler)-np.sum(k), 244, 51, 12, 8, 1]) 
 #k = pd.Series([len(berger_kepler)-np.sum(k), 833, 134, 38, 15, 5])
 k = pd.Series([833, 134, 38, 15, 5, 0])
@@ -108,18 +108,17 @@ def loglike_direct_draw_better(cube, ndim, nparams, k):
 def unit_test(k, model_flag):
 
 	### use fiducial values of m, b, cutoff, and frac for now to test eccentricity models
-	# good model: -0.2, 0.4, 0.4e10, 0.25
-	m = -2.
-	b = 0.5
-	cutoff = 0.4e10 # yrs
-	frac = 0.25 # fraction of FGK dwarfs with planets
+	m = -0.8
+	b = 0.7
+	cutoff = 0.04e10 # yrs
+	frac = 0.4 # fraction of FGK dwarfs with planets
 	cube = [m, b, cutoff, frac]
 	print("cube: ", cube)
 
 	berger_kepler_planets = model_van_eylen(berger_kepler.iso_age, berger_kepler, model_flag, cube)
 	transiters_berger_kepler = berger_kepler_planets.loc[berger_kepler_planets['transit_status']==1]
 	transit_multiplicity = frac*transiters_berger_kepler.groupby('kepid').count()['transit_status'].reset_index().groupby('transit_status').count().reset_index().kepid
-	berger_kepler_planets.to_csv('transits02_04_04_25.csv')
+	#berger_kepler_planets.to_csv('transits02_04_04_25.csv')
 
 	# make sure the 6-multiplicity bin is filled in with zero and ignore zero-bin
 	k[6] = 0
@@ -149,7 +148,7 @@ def unit_test(k, model_flag):
 	plt.ylim(1e-2,1e2)
 	plt.savefig('ecc-inc-test.png')
 	"""
-	return berger_kepler_planets.ecc, np.abs(berger_kepler_planets.mutual_incl)*180/np.pi
+	return berger_kepler_planets.ecc, np.abs(berger_kepler_planets.mutual_incl)*180/np.pi, berger_kepler_planets
 
 # how many params, how many dims, initialize cube
 ndim = 3
@@ -204,6 +203,46 @@ def main(cube, ndim, nparams, k):
 
 #main(cube, ndim, nparams, k)
 #quit()
+
+### Run unit test to replot Fig 5 for manuscript
+import matplotlib.pylab as pylab
+pylab_params = {'legend.fontsize': 'large',
+         'axes.labelsize': 'x-large',
+         'axes.titlesize':'x-large',
+         'xtick.labelsize':'large',
+         'ytick.labelsize':'large'}
+pylab.rcParams.update(pylab_params)
+
+ecc, incl, berger_kepler_planets = unit_test(k, 'rayleigh')
+
+#ax = plt.subplot2grid((2,3), (row,column))
+#im = ax.hexbin(ecc, incl, yscale='log', xscale='log', extent=(-3, 0, -2, 2))
+plt.scatter(ecc, incl, s=3, color='gray', alpha=0.2)
+#fig2 = sns.kdeplot(np.array(ecc), np.array(incl), legend = True, levels=[0.68, 0.95], colors=['black','red'])
+#plt.hexbin(berger_kepler_planets.ecc, np.log10(berger_kepler_planets.incl*180/np.pi))	
+berger_kepler_planets['mutual_incl_deg'] = berger_kepler_planets['mutual_incl'] * 180/np.pi
+singles = berger_kepler_planets.loc[berger_kepler_planets.num_planets==1]
+multis = berger_kepler_planets.loc[berger_kepler_planets.num_planets>1]
+fig1 = sns.kdeplot(data=singles, x='ecc', y='mutual_incl_deg', legend = True, levels=[0.68, 0.95], colors=['black','red'], log_scale=True)
+fig2 = sns.kdeplot(data=multis, x='ecc', y='mutual_incl_deg', legend = True, levels=[0.68, 0.95], colors=['black','blue'], log_scale=True)
+
+plt.ylim(1e-4, 1e2)
+plt.xlim(1e-3, 1e0)
+plt.yscale('log')
+plt.xscale('log')
+#ax.tick_params(axis='both')
+plt.xlabel('eccentricity')
+plt.ylabel('mutual inclination [deg]')
+
+# legend stuff
+plt.plot(-1e5, -1e5, color='blue', label=r'1-$\sigma$ multis contour')
+plt.plot(-1e5, -1e5, color='r', label=r'1-$\sigma$ singles contour')
+plt.plot(-1e5, -1e5, color='k', label=r'2-$\sigma$ contours')
+plt.legend()
+
+plt.savefig(path+'figures/amd_fried_eggs_bw.png')
+plt.show()
+quit()
 
 #### Run unit test to plot and compare different eccentricity distribution assumptions
 """
