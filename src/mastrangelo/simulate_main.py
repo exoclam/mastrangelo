@@ -214,13 +214,18 @@ pylab_params = {'legend.fontsize': 'large',
 pylab.rcParams.update(pylab_params)
 
 ecc, incl, berger_kepler_planets = unit_test(k, 'rayleigh')
+# break into systems
+berger_kepler_planets = berger_kepler_planets.drop_duplicates(subset=['kepid'])
 
 #ax = plt.subplot2grid((2,3), (row,column))
 #im = ax.hexbin(ecc, incl, yscale='log', xscale='log', extent=(-3, 0, -2, 2))
-plt.scatter(ecc, incl, s=3, color='gray', alpha=0.2)
+#plt.scatter(ecc, incl, s=3, color='gray', alpha=0.2)
 #fig2 = sns.kdeplot(np.array(ecc), np.array(incl), legend = True, levels=[0.68, 0.95], colors=['black','red'])
 #plt.hexbin(berger_kepler_planets.ecc, np.log10(berger_kepler_planets.incl*180/np.pi))	
-berger_kepler_planets['mutual_incl_deg'] = berger_kepler_planets['mutual_incl'] * 180/np.pi
+
+berger_kepler_planets['mutual_incl_deg'] = np.abs(berger_kepler_planets['mutual_incl'] * 180/np.pi)
+
+plt.scatter(berger_kepler_planets.ecc, berger_kepler_planets.mutual_incl_deg, s=3, color='gray', alpha=0.2)
 singles = berger_kepler_planets.loc[berger_kepler_planets.num_planets==1]
 multis = berger_kepler_planets.loc[berger_kepler_planets.num_planets>1]
 fig1 = sns.kdeplot(data=singles, x='ecc', y='mutual_incl_deg', legend = True, levels=[0.68, 0.95], colors=['black','red'], log_scale=True)
