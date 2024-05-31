@@ -600,3 +600,11 @@ def draw_star(df):
     df['feh'] = df.feh.fillna(method='ffill')
 
     return df
+
+def draw_radii():
+    """
+    There are many ways to get radii (Exoplanet Archive, Petigura+, etc.). 
+    Require user to specify where to get them from, so they critically reckon with their choices. 
+    """
+
+    return
