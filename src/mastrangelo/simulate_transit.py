@@ -17,7 +17,7 @@ from datetime import datetime
 
 G = 6.6743e-8 # gravitational constant in cgs
 input_path = '/blue/sarahballard/c.lam/sculpting2/' # HPG
-path = '/Users/chris/Desktop/mastrangelo/' # new computer has different username
+path = '/Users/chrislam/Desktop/mastrangelo/' # new computer has different username
 
 def calculate_transit_unit_test(planet_radius, star_radius, P, e, incl, omega, star_mass, cdpp):
     

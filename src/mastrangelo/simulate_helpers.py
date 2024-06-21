@@ -10,9 +10,12 @@ import scipy.stats as stats
 import random
 from scipy.stats import gaussian_kde, loguniform
 from math import lgamma
+import jax
+import jax.numpy as jnp
+from tqdm import tqdm
 
 #path = '/blue/sarahballard/c.lam/sculpting2/'
-path = '/Users/chris/Desktop/sculpting/' # new computer has different username
+path = '/Users/chrislam/Desktop/mastrangelo/' # new computer has different username
 
 """
 # Create sample bank of eccentricities to draw from so that you don't call np.searchsorted a bajillion times
@@ -117,10 +120,39 @@ def assign_intact_flag(x):
 
     return np.random.choice(['intact', 'disrupted'], p=[x, 1-x])
 
-def assign_flag(x, f):
-    # assign intact vs disrupted vs no planets
+def assign_flag(key, prob_intact, frac_host):
+    """
+    Assign intact vs disrupted vs no planets
 
-    return np.random.choice(['intact', 'disrupted', 'no-planets'], p=[x*f, (1-x)*f, 1-f])
+    Inputs:
+    - prob_intact: fraction of dynamically cool systems (4-13% for Sun-like Kepler stars)
+    - frac_host: fraction of systems with planets
+
+    Output: 
+    - status: intact vs disrupted vs no planets [string]
+    """
+
+    status = np.random.choice(a=['no-planets', 'intact', 'disrupted'], p=[1-frac_host, frac_host*prob_intact, frac_host*(1-prob_intact)])
+    return status
+
+def assign_status(frac_host, prob_intact):
+        """
+        Label system as having no planet, dynamically cool system, or dynamically hot system.
+
+        Inputs: 
+        - frac_host: planet host fraction [float]
+        - prob_intact: fraction of dynamically cool systems [float]
+
+        Output:
+        - p: list of probabilities of a system being each of the three potential statuses
+
+        """
+        
+        p = [1-frac_host, frac_host*prob_intact, frac_host*(1-prob_intact)]
+        p = np.asarray(p).astype('float64')
+        p = p / np.sum(p)
+
+        return p  
 
 def assign_num_planets(x):
     # # call np.random.choice() for df.apply for model_vectorized()
@@ -528,6 +560,61 @@ def make_pdf_rows(x, mode, err1, err2):
     
     return out
 
+def draw_asymmetrically(df, mode_name, err1_name, err2_name, drawn):
+    """
+    Draw stellar properties with asymmetric errors. 
+    This is the generalized version of draw_star_ages(), below
+    
+    Inputs:
+    - df: berger_kepler [Pandas DataFrame]
+    - mode_name: name of mode column [string]
+    - err1_name: name of err1 column [string]
+    - err2_name: name of err2 column [string]
+    - drawn: name of new column [string]
+
+    Output:
+    - df: berger_kepler_df, now with new column with drawn parameter, "drawn" [Pandas DataFrame]
+    """
+
+    # in case df is broken up by planet and not star
+    uniques = df.drop_duplicates(subset=['kepid'])
+    
+    x = np.linspace(0.5, 10, 100)
+    modes = np.ones(len(uniques))
+    for i in range(len(uniques)):
+        mode = uniques.iloc[i][mode_name]
+        err1 = uniques.iloc[i][err1_name]
+        err2 = np.abs(uniques.iloc[i][err2_name])
+
+        # symmetric uncertainties
+        if err1==err2:
+            draw = 0
+            while mode <= 0: # make sure the draw is positive
+                draw = np.around(np.random.normal(mode, err1), 2)
+
+        # asymmetric uncertainties
+        elif err1!=err2:
+            pdf = make_pdf_rows(x, mode, err1, err2)
+            pdf = pdf/np.sum(pdf)
+
+            try:
+                draw = 0
+                while draw <= 0: # make sure the draw is positive
+                    draw = np.around(np.random.choice(x, p=pdf), 2)
+            except:
+                print(i, pdf, mode, err1, err2)
+                break
+        
+        modes[i] = mode
+
+    df[drawn] = modes
+
+    # break back out into planet rows and forward fill across systems
+    df = uniques.merge(df, how='right')
+    df[drawn] = df[drawn].fillna(method='ffill')
+    
+    return df
+
 def draw_star_ages(df):
     """
     Draw star's age, taking into account asymmetric age errors. Enriches input DataFrame.
@@ -547,7 +634,7 @@ def draw_star_ages(df):
         if err1==err2:
             age = 0
             while age <= 0: # make sure the age is positive
-                age = np.random.normal(mode, err1)
+                age = np.around(np.random.normal(mode, err1), 2)
 
         # asymmetric uncertainties
         elif err1!=err2:
@@ -557,7 +644,7 @@ def draw_star_ages(df):
             try:
                 age = 0
                 while age <= 0: # make sure the age is positive
-                    age = np.random.choice(x, p=pdf)
+                    age = np.around(np.random.choice(x, p=pdf), 2)
             except:
                 print(i, pdf, mode, err1, err2)
                 break
@@ -569,7 +656,6 @@ def draw_star_ages(df):
     # break back out into planet rows and forward fill across systems
     df = uniques.merge(df, how='right')
     df['age'] = df.age.fillna(method='ffill')
-
 
     return df 
 
@@ -608,3 +694,132 @@ def draw_radii():
     """
 
     return
+
+def galactic_occurrence_step(ages, threshold, frac1, frac2):
+        """
+        Calculate the probability of system having planets, based on its age and three free parameters
+        
+        Input:
+        - ages: stellar ages, in Gyr [float]
+        - threshold: age beyond which probability of hosting a planet is frac2, versus frac1, in Gyr [float]
+        - frac1: planet host fraction among systems younger than threshold [float]
+        - frac2: planet host fraction among systems older than threshold [float]
+
+        Output:
+        - host_frac: jnp.array of fraction of planet hosts [float]
+
+        """
+
+        host_frac = jnp.where(ages <= threshold, frac1, frac2)
+
+        return host_frac
+
+def hill_radius(a, m):
+    """
+    Calculate Hill radii among all consecutive pairs
+
+    Input: 
+    - a: list of planets' semi-major axes
+    - m: list of planets' masses
+
+    Output:
+    - check: does this set of planets contain no planet that falls within another's Hill radius? [bool]
+    """
+
+    return check
+
+def collect_galactic(df):
+    """
+    Compute geometric and detected transit multiplicities, as well as other population-wide statistics, like fraction of planet hosts and fraction of intact systems
+    
+    This is different from collect() in the dynamical sculpting case because the models there affected intact_frac, not frac_host. 
+    So transit multiplicity doesn't assume a constant f. In fact, it already contains it. 
+
+    Also, the scope of this function is per Star, not per Population. 
+
+    Input:
+    - df: Pandas DataFrame of planet-hosting systems, with rows broken down by planet, not star
+
+    Outputs:
+    - transit_multiplicity_among_planet_hosts: 
+    """
+
+    # isolate transiting planets
+    transiters_berger_kepler = df.loc[df['transit_status']==1]
+
+    # compute transit multiplicity 
+    transit_multiplicity_among_planet_hosts = transiters_berger_kepler.groupby('kepid').count()['transit_status'].reset_index().groupby('transit_status').count().reset_index().kepid
+    transit_multiplicity_among_planet_hosts = transit_multiplicity_among_planet_hosts.to_list()
+    transit_multiplicity_among_planet_hosts += [0.] * (6 - len(transit_multiplicity_among_planet_hosts)) # pad with zeros to match length of k
+
+    # also calculate the geometric transit multiplicity
+    geom_transiters_berger_kepler = df.loc[df['geom_transit_status']==1]
+    geom_transit_multiplicity = geom_transiters_berger_kepler.groupby('kepid').count()['geom_transit_status'].reset_index().groupby('geom_transit_status').count().reset_index().kepid
+    geom_transit_multiplicity = geom_transit_multiplicity.to_list()
+    geom_transit_multiplicity += [0.] * (6 - len(geom_transit_multiplicity)) # pad with zeros to match length of k
+
+    # calculate logLs 
+    logL = better_loglike(transit_multiplicity, k)
+    logL_score = better_loglike(transit_multiplicity, k_score)
+    logL_fpp = better_loglike(transit_multiplicity, k_fpp)
+
+    # get intact and disrupted fractions (combine them later to get fraction of systems w/o planets)
+    intact = df.loc[df.intact_flag=='intact']
+    disrupted = df.loc[df.intact_flag=='disrupted']
+    intact_frac = len(intact.kepid.unique())/len(df.kepid.unique())
+    disrupted_frac = len(disrupted.kepid.unique())/len(df.kepid.unique())
+
+    return transit_multiplicity_among_planet_hosts, geom_transit_multiplicity_among_planet_hosts, intact_fracs, disrupted_fracs, logLs, logLs_score, logLs_fpp
+
+def normalize(array):
+    array = 10**array # exponentiate first!!
+    sum = np.sum(array)
+    
+    return array/sum
+
+
+def draw_galactic_heights(df):
+
+    # in case df is broken up by planet and not star
+    uniques = df.drop_duplicates(subset=['kepid'])
+
+    # Read in stellar density vs galactic height curves from Ma+ 2017 Fig 2: https://academic.oup.com/mnras/article/467/2/2430/2966031. I converted the image to data using PlotDigitizer.
+    data1 = pd.read_csv(path+'galactic-occurrence/data/Ma17-fig2-0-2Gyr.csv', header=None, 
+                    names=['height','density'])
+    data2 = pd.read_csv(path+'galactic-occurrence/data/Ma17-fig2-2-4Gyr.csv', header=None, # Ma_midplaneheight_2Gyr_4Gyr.txt
+                    names=['height','density'])
+    data3 = pd.read_csv(path+'galactic-occurrence/data/Ma17-fig2-4-6Gyr.csv', header=None, 
+                    names=['height','density'])
+    data4 = pd.read_csv(path+'galactic-occurrence/data/Ma17-fig2-6-8Gyr.csv', header=None, 
+                    names=['height','density'])
+    data5 = pd.read_csv(path+'galactic-occurrence/data/Ma17-fig2-8-moreGyr.csv', header=None, 
+                    names=['height','density'])
+
+    data1['density'] = normalize(data1['density']) 
+    data2['density'] = normalize(data2['density']) 
+    data3['density'] = normalize(data3['density']) 
+    data4['density'] = normalize(data4['density']) 
+    data5['density'] = normalize(data5['density']) 
+
+    # draw heights based on stellar ages
+    heights = []
+    for i in range(len(df)):
+        if uniques['age'][i] <= 2.:
+            height = np.random.choice(data1['height'], p=data1['density'])
+        elif (uniques['age'][i] > 2.) & (uniques['age'][i] <= 4.):
+            height = np.random.choice(data2['height'], p=data2['density'])
+        elif (uniques['age'][i] > 4.) & (uniques['age'][i] <= 6.):
+            height = np.random.choice(data3['height'], p=data3['density'])
+        elif (uniques['age'][i] > 6.) & (uniques['age'][i] <= 8.):
+            height = np.random.choice(data4['height'], p=data4['density'])
+        elif uniques['age'][i] > 8.:
+            height = np.random.choice(data5['height'], p=data5['density'])
+        heights.append(height)
+
+    df['height'] = np.array(heights) * 1000
+
+     # break back out into planet rows and forward fill across systems
+    df = uniques.merge(df, how='right')
+    df['height'] = df.height.fillna(method='ffill')
+
+    return df 

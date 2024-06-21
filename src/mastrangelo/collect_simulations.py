@@ -137,7 +137,7 @@ def collect(df, f, transit_multiplicities, geom_transit_multiplicities, intact_f
 
 	# also calculate the geometric transit multiplicity
 	geom_transiters_berger_kepler = df.loc[df['geom_transit_status']==1]
-	geom_transit_multiplicity = f * geom_transiters_berger_kepler.groupby('kepid').count()['transit_status'].reset_index().groupby('transit_status').count().reset_index().kepid
+	geom_transit_multiplicity = f * geom_transiters_berger_kepler.groupby('kepid').count()['geom_transit_status'].reset_index().groupby('geom_transit_status').count().reset_index().kepid
 	geom_transit_multiplicity = geom_transit_multiplicity.to_list()
 	geom_transit_multiplicity += [0.] * (6 - len(geom_transit_multiplicity)) # pad with zeros to match length of k
 	geom_transit_multiplicities.append(geom_transit_multiplicity)
@@ -218,185 +218,189 @@ def collect_past_ii(df, f):
 
 	return zeros_age_mean, zeros_age_std, ones_age_mean, ones_age_std, twos_age_mean, twos_age_std, threes_age_mean, threes_age_std
 
+def main():
+	sims = []
+	ms = []
+	bs = []
+	cs = []
+	fs = []
 
-sims = []
-ms = []
-bs = []
-cs = []
-fs = []
+	start = datetime.now()
+	#print("start: ", start)
 
-start = datetime.now()
-#print("start: ", start)
+	#sim = glob(output_path+'systems-recovery-redo/transits0_0_0_0.csv')
+	cube = prior_grid_logslope(cube, ndim, nparams, 0, 0, 0)
+	transit_multiplicities = []
+	geom_transit_multiplicities = []
+	intact_fracs = []
+	disrupted_fracs = []
+	logLs = []
+	logLs_score = []
+	logLs_fpp = []
+	"""
+	nontransit_age_maxes = []
+	nontransit_age_mins = []
+	ones_age_maxes = []
+	ones_age_mins = []
+	twos_age_maxes = []
+	twos_age_mins = []
+	threes_age_maxes = []
+	threes_age_mins = []
+	"""
+	#output = pd.DataFrame()
 
-#sim = glob(output_path+'systems-recovery-redo/transits0_0_0_0.csv')
-cube = prior_grid_logslope(cube, ndim, nparams, 0, 0, 0)
-transit_multiplicities = []
-geom_transit_multiplicities = []
-intact_fracs = []
-disrupted_fracs = []
-logLs = []
-logLs_score = []
-logLs_fpp = []
-"""
-nontransit_age_maxes = []
-nontransit_age_mins = []
-ones_age_maxes = []
-ones_age_mins = []
-twos_age_maxes = []
-twos_age_mins = []
-threes_age_maxes = []
-threes_age_mins = []
-"""
-#output = pd.DataFrame()
+	""""
+	gi_m = 2
+	gi_b = 2
+	gi_c = 1
+	sim = glob(output_path+'systems-recovery-redo/transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
+	print(sim)
+	cube = prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c)
+	print(gi_m, gi_b, gi_c, len(sim)) # so I know where I am
 
-""""
-gi_m = 2
-gi_b = 2
-gi_c = 1
-sim = glob(output_path+'systems-recovery-redo/transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
-print(sim)
-cube = prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c)
-print(gi_m, gi_b, gi_c, len(sim)) # so I know where I am
-
-# cycle through different fractions of systems with planets
-for f in np.round(np.linspace(0.1, 1, 10), 1):
-	
-	for i in range(len(sim)):
-		#print("hi: ", gi_m, gi_b, gi_c, cube[0], cube[1], cube[2])
-		ms.append(cube[0])
-		bs.append(cube[1])
-		cs.append(cube[2])
-		fs.append(f)
-
-		df = pd.read_csv(sim[i], sep=',', on_bad_lines='skip')
-		print(i, df)
-		# populate future columns for output DataFrame
-		transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs = collect(df, f, transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs)
-
-quit()
-"""
-
-# cycle through different fractions of systems with planets
-"""
-for f in np.linspace(0.1, 1, 10):
-
-	for i in range(len(sim)):
-
-		ms.append(cube[0])
-		bs.append(cube[1])
-		cs.append(cube[2])
-		fs.append(f)
-					
-		df = pd.read_csv(sim[i], sep=',', on_bad_lines='skip')
-
-		# populate future columns for output DataFrame
-		transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs = collect(df, f, transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs)
-		#nontransit_age_max, nontransit_age_min, ones_age_max, ones_age_min, twos_age_max, twos_age_min, threes_age_max, threes_age_min = collect_past_ii(df, f)
-		#nontransit_age_maxes.append(nontransit_age_max)
-		#nontransit_age_mins.append(nontransit_age_min)
-		#ones_age_maxes.append(ones_age_max)
-		#ones_age_mins.append(ones_age_min)
-		#twos_age_maxes.append(twos_age_max)
-		#twos_age_mins.append(twos_age_min)
-		#threes_age_maxes.append(threes_age_max)
-		#threes_age_mins.append(threes_age_min)
-"""
-print("finished initial set")
-
-for gi_m in range(6):
-
-	for gi_b in range(11):
+	# cycle through different fractions of systems with planets
+	for f in np.round(np.linspace(0.1, 1, 10), 1):
 		
-		for gi_c in range(11):
+		for i in range(len(sim)):
+			#print("hi: ", gi_m, gi_b, gi_c, cube[0], cube[1], cube[2])
+			ms.append(cube[0])
+			bs.append(cube[1])
+			cs.append(cube[2])
+			fs.append(f)
+
+			df = pd.read_csv(sim[i], sep=',', on_bad_lines='skip')
+			print(i, df)
+			# populate future columns for output DataFrame
+			transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs = collect(df, f, transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs)
+
+	quit()
+	"""
+
+	# cycle through different fractions of systems with planets
+	"""
+	for f in np.linspace(0.1, 1, 10):
+
+		for i in range(len(sim)):
+
+			ms.append(cube[0])
+			bs.append(cube[1])
+			cs.append(cube[2])
+			fs.append(f)
+						
+			df = pd.read_csv(sim[i], sep=',', on_bad_lines='skip')
+
+			# populate future columns for output DataFrame
+			transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs = collect(df, f, transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs)
+			#nontransit_age_max, nontransit_age_min, ones_age_max, ones_age_min, twos_age_max, twos_age_min, threes_age_max, threes_age_min = collect_past_ii(df, f)
+			#nontransit_age_maxes.append(nontransit_age_max)
+			#nontransit_age_mins.append(nontransit_age_min)
+			#ones_age_maxes.append(ones_age_max)
+			#ones_age_mins.append(ones_age_min)
+			#twos_age_maxes.append(twos_age_max)
+			#twos_age_mins.append(twos_age_min)
+			#threes_age_maxes.append(threes_age_max)
+			#threes_age_mins.append(threes_age_min)
+	"""
+
+	print("finished initial set")
+
+	for gi_m in range(6):
+
+		for gi_b in range(11):
 			
-			try:
-				#sim = glob(output_path+'systems-recovery-asymmetric-redo/transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
-				sim = glob(output_path+'systems-recovery-asymmetric-redo-weird/transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
-				#sim = glob(output_path+'systems-asymmetric/transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
-				#sim = glob(output_path+'systems-ten/transits'+str(gi_m)+'_'+str(gi_b)+'_1*')
-			except:
-				print("file not found: ", 'transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
-				#print("file not found: ", 'transits'+str(gi_m)+'_'+str(gi_b)+'_1*')
-				continue # if no file found, skip to next iteration 
-
-			cube = prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c)
-			print(gi_m, gi_b, gi_c, len(sim)) # so I know where I am
-
-			# cycle through different fractions of systems with planets
-			for f in np.round(np.linspace(0.1, 1, 10), 1):
+			for gi_c in range(11):
 				
-				for i in range(len(sim)):
+				try:
+					#sim = glob(output_path+'systems-recovery-asymmetric-redo/transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
+					sim = glob(output_path+'systems-recovery-asymmetric-redo-weird/transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
+					#sim = glob(output_path+'systems-asymmetric/transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
+					#sim = glob(output_path+'systems-ten/transits'+str(gi_m)+'_'+str(gi_b)+'_1*')
+				except:
+					print("file not found: ", 'transits'+str(gi_m)+'_'+str(gi_b)+'_'+str(gi_c)+'*')
+					#print("file not found: ", 'transits'+str(gi_m)+'_'+str(gi_b)+'_1*')
+					continue # if no file found, skip to next iteration 
 
-					df = pd.read_csv(sim[i], sep='\t', on_bad_lines='skip') # ground truth is \t; recovery is ,
+				cube = prior_grid_logslope(cube, ndim, nparams, gi_m, gi_b, gi_c)
+				print(gi_m, gi_b, gi_c, len(sim)) # so I know where I am
 
-					# populate future columns for output DataFrame
-					try: # Some sim dfs got corrupted in HPG. We skip these. 
-						transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs, logLs_score, logLs_fpp = collect(df, f, transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs, logLs_score, logLs_fpp)
-						#nontransit_age_max, nontransit_age_min, ones_age_max, ones_age_min, twos_age_max, twos_age_min, threes_age_max, threes_age_min = collect_past_ii(df, f)
-						ms.append(cube[0])
-						bs.append(cube[1])
-						cs.append(cube[2])
-						fs.append(f)
-
-					except:
-						continue
+				# cycle through different fractions of systems with planets
+				for f in np.round(np.linspace(0.1, 1, 10), 1):
 					
-					"""
-					nontransit_age_maxes.append(nontransit_age_max)
-					nontransit_age_mins.append(nontransit_age_min)
-					ones_age_maxes.append(ones_age_max)
-					ones_age_mins.append(ones_age_min)
-					twos_age_maxes.append(twos_age_max)
-					twos_age_mins.append(twos_age_min)
-					threes_age_maxes.append(threes_age_max)
-					threes_age_mins.append(threes_age_min)
-					"""
+					for i in range(len(sim)):
 
-#end = datetime.now()
-#print("TIME ELAPSED: ", end-start)
+						df = pd.read_csv(sim[i], sep='\t', on_bad_lines='skip') # ground truth is \t; recovery is ,
 
-df_logL = pd.DataFrame({'ms': ms, 'bs': bs, 'cs': cs, 'fs': fs, 'transit_multiplicities': transit_multiplicities, 
-			'geom_transit_multiplicities': geom_transit_multiplicities, 'intact_fracs': intact_fracs, 'disrupted_fracs': disrupted_fracs, 'logLs': logLs, 'logLs_score': logLs_score, 'logLs_fpp': logLs_fpp})
-			
-	#'nontransit_age_maxes': nontransit_age_maxes, 'nontransit_age_mins': nontransit_age_mins, 'ones_age_maxes': ones_age_maxes, 
-	#'ones_age_mins': ones_age_mins, 'twos_age_maxes': twos_age_maxes, 'twos_age_mins': twos_age_mins,
-	#'threes_age_maxes': threes_age_maxes, 'threes_age_mins': threes_age_mins})
-print(df_logL)
+						# populate future columns for output DataFrame
+						try: # Some sim dfs got corrupted in HPG. We skip these. 
+							transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs, logLs_score, logLs_fpp = collect(df, f, transit_multiplicities, geom_transit_multiplicities, intact_fracs, disrupted_fracs, logLs, logLs_score, logLs_fpp)
+							#nontransit_age_max, nontransit_age_min, ones_age_max, ones_age_min, twos_age_max, twos_age_min, threes_age_max, threes_age_min = collect_past_ii(df, f)
+							ms.append(cube[0])
+							bs.append(cube[1])
+							cs.append(cube[2])
+							fs.append(f)
 
-#df_logL.to_csv(output_path+'collect_asymmetric.csv', index=False) # collect_ is for transit multiplicity; past_ii_ is for age vs multiplicity
-#df_logL.to_csv(output_path+'collect_recovery_asymmetric_redo.csv', index=False) # collect_ is for transit multiplicity; past_ii_ is for age vs multiplicity
-df_logL.to_csv(output_path+'collect_recovery_asymmetric_redo_weird.csv', index=False) # collect_ is for transit multiplicity; past_ii_ is for age vs multiplicity
+						except:
+							continue
+						
+						"""
+						nontransit_age_maxes.append(nontransit_age_max)
+						nontransit_age_mins.append(nontransit_age_min)
+						ones_age_maxes.append(ones_age_max)
+						ones_age_mins.append(ones_age_min)
+						twos_age_maxes.append(twos_age_max)
+						twos_age_mins.append(twos_age_min)
+						threes_age_maxes.append(threes_age_max)
+						threes_age_mins.append(threes_age_min)
+						"""
 
-quit()
+	#end = datetime.now()
+	#print("TIME ELAPSED: ", end-start)
 
-# calculate max/min envelopes for both multiplicities
-lam_elt_max = []
-lam_elt_min = []
-lam_elt_avg = []
+	df_logL = pd.DataFrame({'ms': ms, 'bs': bs, 'cs': cs, 'fs': fs, 'transit_multiplicities': transit_multiplicities, 
+				'geom_transit_multiplicities': geom_transit_multiplicities, 'intact_fracs': intact_fracs, 'disrupted_fracs': disrupted_fracs, 'logLs': logLs, 'logLs_score': logLs_score, 'logLs_fpp': logLs_fpp})
+				
+		#'nontransit_age_maxes': nontransit_age_maxes, 'nontransit_age_mins': nontransit_age_mins, 'ones_age_maxes': ones_age_maxes, 
+		#'ones_age_mins': ones_age_mins, 'twos_age_maxes': twos_age_maxes, 'twos_age_mins': twos_age_mins,
+		#'threes_age_maxes': threes_age_maxes, 'threes_age_mins': threes_age_mins})
+	print(df_logL)
 
-for temp_list in zip_longest(*transit_multiplicities_all):
-	elt = [0 if v is None else v for v in ma.masked_values(temp_list, 0)]
-	print(elt)
-	lam_elt_max.append(max(elt))
-	lam_elt_min.append(min(elt))
-	lam_elt_avg.append(np.mean(elt))
+	#df_logL.to_csv(output_path+'collect_asymmetric.csv', index=False) # collect_ is for transit multiplicity; past_ii_ is for age vs multiplicity
+	#df_logL.to_csv(output_path+'collect_recovery_asymmetric_redo.csv', index=False) # collect_ is for transit multiplicity; past_ii_ is for age vs multiplicity
+	df_logL.to_csv(output_path+'collect_recovery_asymmetric_redo_weird.csv', index=False) # collect_ is for transit multiplicity; past_ii_ is for age vs multiplicity
 
-lam_upper.append(lam_elt_max)
-lam_lower.append(lam_elt_min)
-lam_avgs.append(lam_elt_avg)
-print(lam_upper, lam_lower, lam_avgs)				
-fasdfa
+	quit()
 
-"""
-print(len(ms))
-print(len(bs))
-print(len(cs))
-print(len(fs))
-print(len(transit_multiplicities_all))
-"""
+	# calculate max/min envelopes for both multiplicities
+	lam_elt_max = []
+	lam_elt_min = []
+	lam_elt_avg = []
 
-df_logL = pd.DataFrame({'ms': ms, 'bs': bs, 'cs': cs, 'fs': fs, 'logLs': logLs, 
-	'transit_multiplicities': transit_multiplicities_all, 'geom_transit_multiplicities': geom_transit_multiplicities_all,
-	'intact_fracs': intact_fracs_all, 'disrupted_fracs': disrupted_fracs_all})
-print(df_logL)
-df_logL.to_csv(path+'logLs.csv', index=False)
+	for temp_list in zip_longest(*transit_multiplicities_all):
+		elt = [0 if v is None else v for v in ma.masked_values(temp_list, 0)]
+		print(elt)
+		lam_elt_max.append(max(elt))
+		lam_elt_min.append(min(elt))
+		lam_elt_avg.append(np.mean(elt))
+
+	lam_upper.append(lam_elt_max)
+	lam_lower.append(lam_elt_min)
+	lam_avgs.append(lam_elt_avg)
+	print(lam_upper, lam_lower, lam_avgs)				
+	fasdfa
+
+	"""
+	print(len(ms))
+	print(len(bs))
+	print(len(cs))
+	print(len(fs))
+	print(len(transit_multiplicities_all))
+	"""
+
+	df_logL = pd.DataFrame({'ms': ms, 'bs': bs, 'cs': cs, 'fs': fs, 'logLs': logLs, 
+		'transit_multiplicities': transit_multiplicities_all, 'geom_transit_multiplicities': geom_transit_multiplicities_all,
+		'intact_fracs': intact_fracs_all, 'disrupted_fracs': disrupted_fracs_all})
+	print(df_logL)
+	df_logL.to_csv(path+'logLs.csv', index=False)
+
+if __name__ == "__main__":
+   main()
