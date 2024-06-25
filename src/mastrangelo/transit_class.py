@@ -202,7 +202,6 @@ class Star:
             mu = self.midplane
             sigma = self.sigma_incl
             self.incls = mu + sigma * jax.random.normal(key, shape=(self.num_planets,))
-            #self.incls = jax.random.normal(key, shape=(self.num_planets, ), self.midplane, self.sigma_incl)
 
             # obtain mutual inclinations for plotting to compare {e, i} distributions
             self.mutual_incls = self.midplane - self.incls
@@ -219,6 +218,13 @@ class Star:
             # draw longitudes of periastron
             self.omegas = jax.random.uniform(key, shape=(self.num_planets,), minval=0, maxval=2*jnp.pi)
 
+            # turn to comma-delimited lists for ease of reading in later
+            self.incls = self.incls.tolist()
+            self.periods = self.periods.tolist()
+            self.mutual_incls = self.mutual_incls.tolist()
+            self.eccs = self.eccs.tolist()
+            self.omegas = self.omegas.tolist()
+            
         else:
             self.periods = None
             self.incls = None

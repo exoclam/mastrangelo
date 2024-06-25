@@ -9,6 +9,7 @@ import scipy
 import scipy.stats as stats
 import random
 from scipy.stats import gaussian_kde, loguniform
+from scipy.interpolate import CubicSpline
 from math import lgamma
 import jax
 import jax.numpy as jnp
@@ -795,25 +796,44 @@ def draw_galactic_heights(df):
     data5 = pd.read_csv(path+'galactic-occurrence/data/Ma17-fig2-8-moreGyr.csv', header=None, 
                     names=['height','density'])
 
-    data1['density'] = normalize(data1['density']) 
-    data2['density'] = normalize(data2['density']) 
-    data3['density'] = normalize(data3['density']) 
-    data4['density'] = normalize(data4['density']) 
-    data5['density'] = normalize(data5['density']) 
+    data1_height = np.linspace(0, np.array(data1['height'])[-1], 100)
+    data2_height = np.linspace(0, np.array(data2['height'])[-1], 100)
+    data3_height = np.linspace(0, np.array(data3['height'])[-1], 100)
+    data4_height = np.linspace(0, np.array(data4['height'])[-1], 100)
+    data5_height = np.linspace(0, np.array(data5['height'])[-1], 100)
+
+    # interpolate for finer galactic height draws
+    cs1 = CubicSpline(data1['height'], data1['density'])
+    cs2 = CubicSpline(data2['height'], data2['density'])
+    cs3 = CubicSpline(data3['height'], data3['density'])
+    cs4 = CubicSpline(data4['height'], data4['density'])
+    cs5 = CubicSpline(data5['height'], data5['density'])
+
+    data1_density = cs1(data1_height)
+    data2_density = cs2(data2_height)
+    data3_density = cs3(data3_height)
+    data4_density = cs4(data4_height)
+    data5_density = cs5(data5_height)
+
+    data1_density = normalize(data1_density) 
+    data2_density = normalize(data2_density) 
+    data3_density = normalize(data3_density) 
+    data4_density = normalize(data4_density) 
+    data5_density = normalize(data5_density) 
 
     # draw heights based on stellar ages
     heights = []
     for i in range(len(df)):
         if uniques['age'][i] <= 2.:
-            height = np.random.choice(data1['height'], p=data1['density'])
+            height = np.random.choice(data1_height, p=data1_density)
         elif (uniques['age'][i] > 2.) & (uniques['age'][i] <= 4.):
-            height = np.random.choice(data2['height'], p=data2['density'])
+            height = np.random.choice(data2_height, p=data2_density)
         elif (uniques['age'][i] > 4.) & (uniques['age'][i] <= 6.):
-            height = np.random.choice(data3['height'], p=data3['density'])
+            height = np.random.choice(data3_height, p=data3_density)
         elif (uniques['age'][i] > 6.) & (uniques['age'][i] <= 8.):
-            height = np.random.choice(data4['height'], p=data4['density'])
+            height = np.random.choice(data4_height, p=data4_density)
         elif uniques['age'][i] > 8.:
-            height = np.random.choice(data5['height'], p=data5['density'])
+            height = np.random.choice(data5_height, p=data5_density)
         heights.append(height)
 
     df['height'] = np.array(heights) * 1000
