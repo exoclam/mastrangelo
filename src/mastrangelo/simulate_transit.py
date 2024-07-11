@@ -874,4 +874,68 @@ def model_van_eylen(star_age, df, model_flag, cube):
 
     return berger_kepler_planets
 
+######Calculate MES, from Jon Zink's ExoMULT (https://github.com/jonzink/ExoMult/blob/master/ScalingK2VIII/ExoMult.py)####
+def MES_calc(period, planet_radius, star_radius, cdpp, b, tobs, f0):
+	
+    MES=np.zeros(len(period))
+    limb_u1=0.1
+    limb_u2=0.06
+    krp=planet_radius/star_radius*0.00916399
+    c0  = 1.0 - (limb_u1+limb_u2)
+    omega = c0/4+0/5+(limb_u1+2*limb_u2)/6+0/7-limb_u2/8
+    ksq = 1.0 - krp**2
+    tmp0 = c0/4 * ksq
+    tmp2 = (limb_u1+2*limb_u2)/6* ksq**(3.0/2.0)
+    tmp4 = -limb_u2/8 * ksq**2
+    depth=(1.0 - (tmp0 + tmp2 + tmp4)/omega) * 1.0e6
+        
+    number_transits=tobs/period
+    
+    MES=depth/(cdpp)*1.003*(number_transits*f0)**.5
 
+    return(MES)
+
+def probability_detection(period, star_radius, planet_radius, e, incl, omega, star_mass, cdpps, angle_flag):
+
+    tobs = 365*3.5 # days; time spanned observing the target; set to 3.5 years, or the length of Kepler mission
+    f0 = 0.92 # fraction of time spent actually observing and not doing spacecraft things, aka duty cycle
+
+    # reformulate P as a in AU
+    a = simulate_helpers.p_to_a(period, star_mass)
+    
+    # calculate impact parameters; distance units in solar radii
+    b = simulate_helpers.calculate_impact_parameter_vectorized(star_radius, a, e, incl, omega, angle_flag)
+
+    # calculate transit duration
+    tdur = simulate_helpers.calculate_transit_duration_vectorized(period, simulate_helpers.solar_radius_to_au(star_radius), 
+        simulate_helpers.earth_radius_to_au(planet_radius), b, a, incl, e, omega, angle_flag)
+
+    # MES = multiple event statistic
+    MES=MES_calc(period, planet_radius, star_radius, cdpps, b, tobs, f0)
+    print("MES w/o nan: ", MES[~np.isnan(MES)])
+    print("MES: ", len(np.array(MES.dropna)), len(np.array(MES)))
+    print("test1: ", gamma.cdf(np.array([9.408459397790587, 16.35534570141114, 8.964464697709975, 8.430139210699249,11.351781125596192,5.778448119248139]),a=33.3884,loc=0,scale=0.264472))
+    quit()
+    ######Window Function#########
+    number_transits = tobs*f0/np.array(period) 
+    Ntr = number_transits
+
+    ###Calulate the fraction detected at this MES        
+    Ntr=np.floor(Ntr)
+    number_transits=number_transits
+    probabilty_window=np.ones(len(period))
+    probabilty_window=np.where(number_transits<=3,number_transits-2,probabilty_window)
+    probabilty_window=np.where(number_transits>3,1,probabilty_window)
+    probabilty_window=np.where(number_transits<2,0,probabilty_window)
+    
+    print("test: ", gamma.cdf(np.array(MES),a=33.3884,loc=0,scale=0.264472)*0.699093)
+    fdet=np.where(Ntr==3,gamma.cdf(MES,a=33.3884,loc=0,scale=0.264472)*0.699093,
+                                    np.where(Ntr==4,gamma.cdf(MES,a=32.8860,loc=0,scale=0.269577)*0.768366,
+                                    np.where(Ntr==5,gamma.cdf(MES,a=31.5196,loc=-0,scale=0.282741)*0.833673,
+                                    np.where(Ntr==6,gamma.cdf(MES,a=30.9919,loc=-0,scale=0.286979)*0.859865,
+                                    np.where((Ntr>=7) & (Ntr<=9) ,gamma.cdf(MES,a=30.1906,loc=-0,scale=0.294688)*0.875042,
+                                    np.where((Ntr>=10)& (Ntr<=18) ,gamma.cdf(MES,a=31.6342,loc=0,scale=0.279425)*0.886144,
+                                    np.where((Ntr>=19)& (Ntr<=36) ,gamma.cdf(MES,a=32.6448,loc=-0,scale=0.268898)*0.889724,
+                                    np.where(Ntr>=37,gamma.cdf(MES,a=27.8185,loc=0,scale=0.32432)*0.945075,0))))))))
+
+    return fdet * probability_window
