@@ -15,6 +15,9 @@ import jax
 import jax.numpy as jnp
 from tqdm import tqdm
 
+import matplotlib
+import matplotlib.pyplot as plt
+
 #path = '/blue/sarahballard/c.lam/sculpting2/'
 path = '/Users/chrislam/Desktop/mastrangelo/' # new computer has different username
 
@@ -729,6 +732,99 @@ def hill_radius(a, m):
 
     return check
 
+def draw_planet_radii(periods):
+    """
+    Draw planet radii following Zink+ 2023: https://iopscience.iop.org/article/10.3847/1538-3881/acd24c#ajacd24cs4. 
+    This starts with a simple power law.
+    Then we partition using the Van Eylen+ 2018 planet radius-period relation: https://academic.oup.com/mnras/article/479/4/4786/5050069
+    We do not yet offer size ordering within systems. 
+
+    Input: 
+    - periods: planet periods [np.array of floats]
+
+    Output: 
+    - radii: planet radii [np.array of floats]
+    """
+
+    # mise en place
+    # are these going to be Super-Earths (se) or Sub-Neptunes (sn)? Zink+ 2023 says their occurrence rates overlap, so in a world with only small planets, let's say 50-50
+    # should I assume Peas in a Pod? Should I allow for that? 
+    se_or_sn = np.random.choice(['se','sn'], size=len(periods), p=[0.5, 0.5])
+    se_grid = np.linspace(1.2, 2., 100)
+    sn_grid = np.linspace(2., 4., 100)
+    period_grid = np.logspace(np.log10(3), np.log10(200), 100)
+    m_grid = np.linspace(-0.5, 0.5, 100) # for radius gap
+    a_grid = np.linspace(np.log10(1), np.log10(4), 100) # for radius gap
+
+    # draw alpha, which is the power relation between radius and the PDF of the radius distribution
+    alpha_se = np.random.normal(-1., 0.2)
+    alpha_sn = np.random.normal(-1.5, 0.1)
+
+    # generate PDF for radius, and then normalize to sum to 1
+    q_se = se_grid**alpha_se
+    q_se = q_se/np.sum(q_se)
+
+    q_sn = sn_grid**alpha_sn
+    q_sn = q_sn/np.sum(q_sn)
+    
+    # draw initial radii
+    radii = [] # this will be flexible if I want to break Peas in a Pod later
+    radii_se = np.random.choice(se_grid, size=len(se_or_sn[se_or_sn == 'se']), p=q_se)
+    radii_sn = np.random.choice(sn_grid, size=len(se_or_sn[se_or_sn == 'sn']), p=q_sn)
+    radii.append(radii_se)
+    radii.append(radii_sn)
+    radii = np.concatenate([x.ravel() for x in radii])
+
+    """
+    Cull radius valley planets. Maybe 10%? 
+    """
+    # draw m, which is the power law slope between radius and period
+    radius_valley_m_pdf = make_pdf_rows(m_grid, -0.09, 0.02, 0.04)
+    radius_valley_m_pdf = radius_valley_m_pdf/np.sum(radius_valley_m_pdf)
+    m = np.around(np.random.choice(m_grid, p=radius_valley_m_pdf), 2)
+
+    # draw upper and lower envelope y-intercepts 
+    radius_valley_a_upper_pdf = make_pdf_rows(a_grid, 0.44, 0.04, 0.03)
+    radius_valley_a_upper_pdf = radius_valley_a_upper_pdf/np.sum(radius_valley_a_upper_pdf)
+    a_upper = np.around(np.random.choice(a_grid, p=radius_valley_a_upper_pdf), 2)
+
+    radius_valley_a_lower_pdf = make_pdf_rows(a_grid, 0.29, 0.04, 0.03)
+    radius_valley_a_lower_pdf = radius_valley_a_lower_pdf/np.sum(radius_valley_a_lower_pdf)
+    a_lower = np.around(np.random.choice(a_grid, p=radius_valley_a_lower_pdf), 2)
+
+    # is it in the radius valley?
+    upper = 10**(m * np.log10(periods) + a_upper)
+    lower = 10**(m * np.log10(periods) + a_lower)
+
+    # resample 90% of the time if a planet lands in here
+    for index, radius in enumerate(radii):
+        while (radius >= lower[index]) & (radius <= upper[index]):
+            if radius <= 2.:
+                radii[index] = np.random.choice(se_grid, size=1, p=q_se)[0]
+            elif (radius > 2.) & (radius <= 4.):
+                radii[index] = np.random.choice(sn_grid, size=1, p=q_sn)[0]
+            #print("try: ", radii[index], lower[index], upper[index])
+
+            # 10% chance of grace
+            grace = np.random.choice(['accept gap', 'reject gap'], p=[0.05, 0.95])
+            if grace=='accept gap':
+                break
+            elif grace=='reject gap':
+                continue
+
+    """
+    # plot to check if radius sampling and valley are working as expected; feed in: stats.loguniform.rvs(2, 300, size=1000)
+    df = pd.DataFrame({'p': periods, 'r': radii, 'upper': upper, 'lower': lower})
+    df = df.sort_values(by='p')
+    plt.scatter(df.p, df.r)
+    plt.xscale('log')
+    plt.plot(df.p, df.upper, label='upper')
+    plt.plot(df.p, df.lower, label='lower')
+    plt.show()
+    """
+
+    return radii
+
 def collect_galactic(df):
     """
     Compute geometric and detected transit multiplicities, as well as other population-wide statistics, like fraction of planet hosts and fraction of intact systems
@@ -777,7 +873,6 @@ def normalize(array):
     sum = np.sum(array)
     
     return array/sum
-
 
 def draw_galactic_heights(df):
 

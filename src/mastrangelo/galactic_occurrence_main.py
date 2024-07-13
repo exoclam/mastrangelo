@@ -116,7 +116,8 @@ for j in range(30):
             'incls': star.incls,
             'mutual_incls': star.mutual_incls,
             'eccs': star.eccs,
-            'omegas': star.omegas
+            'omegas': star.omegas,
+            'planet_radii': star.planet_radii
         }
         star_data.append(star_update)
         pop.add_child(star)
@@ -143,6 +144,7 @@ for i in range(3):
     # read in non-exploded generated system data, which includes non-planet hosts
     berger_kepler_all = pd.read_csv(path+'galactic-occurrence/systems/berger_kepler_planets_'+str(i)+'.csv')
     berger_kepler_all['periods'] = berger_kepler_all['periods'].apply(literal_eval_w_exceptions)
+    berger_kepler_all['planet_radii'] = berger_kepler_all['planet_radii'].apply(literal_eval_w_exceptions)
     berger_kepler_all['incls'] = berger_kepler_all['incls'].apply(literal_eval_w_exceptions)
     berger_kepler_all['mutual_incls'] = berger_kepler_all['mutual_incls'].apply(literal_eval_w_exceptions)
     berger_kepler_all['eccs'] = berger_kepler_all['eccs'].apply(literal_eval_w_exceptions)
@@ -161,7 +163,7 @@ for i in range(3):
 
     # bin planet hosts by galactic height
     berger_kepler_planets = berger_kepler_all.loc[berger_kepler_all['num_planets'] > 0]
-    berger_kepler_planets = berger_kepler_planets.explode(['periods', 'incls', 'mutual_incls', 'eccs', 'omegas'])
+    berger_kepler_planets = berger_kepler_planets.explode(['periods', 'planet_radii', 'incls', 'mutual_incls', 'eccs', 'omegas'])
 
     berger_kepler_planets1 = berger_kepler_planets.loc[berger_kepler_planets['height'] < 150]
     berger_kepler_planets2 = berger_kepler_planets.loc[(berger_kepler_planets['height'] >= 150) & (berger_kepler_planets['height'] < 250)]
@@ -190,7 +192,7 @@ for i in range(3):
 
         ### Simulate detections from these synthetic systems
         prob_detections, transit_statuses, sn, geom_transit_statuses = simulate_transit.calculate_transit_vectorized(berger_kepler_planets_temp.periods, 
-                                        berger_kepler_planets_temp.stellar_radius, 2.*np.ones(len(berger_kepler_planets_temp)), # eventually I will draw planet radii
+                                        berger_kepler_planets_temp.stellar_radius, berger_kepler_planets_temp.planet_radii,
                                         berger_kepler_planets_temp.eccs, 
                                         berger_kepler_planets_temp.mutual_incls, 
                                         berger_kepler_planets_temp.omegas, berger_kepler_planets_temp.stellar_mass,
@@ -337,11 +339,28 @@ sampler = infer.MCMC(
 sampler.run(jax.random.PRNGKey(0), np.array(zink_kepler['scale_height']), yerr, y=mean_physical_planet_occurrences)
 
 inf_data = az.from_numpyro(sampler)
+
+print(len(inf_data.posterior.data_vars['m'][0].values))
+quit()
+
+
 print(az.summary(inf_data))
 m = inf_data.posterior.data_vars['m'].mean().values
 b = inf_data.posterior.data_vars['b'].mean().values
 print("slope: ", m)
 print("intercept: ", b)
+
+m_std = inf_data.posterior.data_vars['m'].std().values
+b_std = inf_data.posterior.data_vars['b'].std().values
+print("slope spread: ", m_std)
+print("intercept spread: ", b_std)
+
+m_max = inf_data.posterior.data_vars['m'].max().values
+b_max = inf_data.posterior.data_vars['b'].max().values
+print("slope max: ", m_std)
+print("intercept max: ", b_std)
+
+
 
 """
 Plot occurrence vs galactic height, as well as transit multiplicity detected yield
@@ -350,7 +369,12 @@ Plot occurrence vs galactic height, as well as transit multiplicity detected yie
 plt.errorbar(x=zink_kepler['scale_height'], y=zink_kepler['occurrence'], yerr=(zink_kepler['occurrence_err1'], zink_kepler['occurrence_err2']), fmt='o', capsize=3, elinewidth=1, markeredgewidth=1, label='Kepler', alpha=0.5)
 plt.scatter(x=zink_kepler['scale_height'], y=100.*physical_planet_occurrence, color='red', label='model [actual]')
 plt.fill_between(x=zink_kepler['scale_height'], y1=100.*np.max(detected_planet_occurrences_all, axis=0), y2=100*np.min(detected_planet_occurrences_all, axis=0), color='green', alpha=0.3, label='model [detected]')
-plt.plot([100, 1000], b + m * np.array([100, 1000]), label='best-fit')
+plt.plot([100, 1000], b + m * np.array([100, 1000]), label='best-fit', alpha=0.3)
+for models in range(9):
+    plt.plot([100, 1000], b + m * np.array([100, 1000]), alpha=0.3)
+
+
+    
 
 plt.xlim([100, 1000])
 plt.ylim([6, 100])

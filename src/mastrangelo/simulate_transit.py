@@ -249,7 +249,6 @@ def calculate_transit_vectorized(P, star_radius, planet_radius, e, incl, omega, 
     b = calculate_impact_parameter_vectorized(star_radius, a, e, incl, omega, angle_flag)
     
     # make sure arrays have explicitly float elements
-    planet_radius = planet_radius.astype(float)
     star_radius = star_radius.astype(float)
     a = a.astype(float)    
     
@@ -258,13 +257,15 @@ def calculate_transit_vectorized(P, star_radius, planet_radius, e, incl, omega, 
     #                        earth_radius_to_au(planet_radius), b, a, incl, e, omega)
     # Matthias's planet params are in solar units
     tdur = calculate_transit_duration_vectorized(P, solar_radius_to_au(star_radius), 
-        earth_radius_to_au(planet_radius), b, a, incl, e, omega, angle_flag)
+        earth_radius_to_au(np.array(planet_radius)), b, a, incl, e, omega, angle_flag)
     
     # calculate CDPP by drawing from Kepler dataset relation with star radius
     #cdpp = [draw_cdpp(sr, berger_kepler) for sr in star_radius]
     
     # calculate SN based on Eqn 4 in Christiansen et al 2012
-    sn = calculate_sn_vectorized(P, planet_radius, star_radius, cdpps, tdur, unit_test_flag=False)
+    sn = np.array(calculate_sn_vectorized(P, np.array(planet_radius), star_radius, cdpps, tdur, unit_test_flag=False))
+    #print(sn)
+    #quit()
 
     # it's weird that I'm tabulating geometric transits now, but I get free info on it from NaNs in the S/N calculation portion
     geom_transit_status = np.where(np.isnan(sn), 0, 1)

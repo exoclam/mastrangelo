@@ -198,6 +198,9 @@ class Star:
             # Sheila has code to factor in Hill radii for more realistic modeling
             self.periods = jnp.array(loguniform.rvs(2, 300, size=self.num_planets))
 
+            # draw planet radii
+            self.planet_radii = simulate_helpers.draw_planet_radii(self.periods)
+
             # draw inclinations from Gaussian distribution centered on midplane (invariable plane)        
             mu = self.midplane
             sigma = self.sigma_incl
@@ -221,12 +224,14 @@ class Star:
             # turn to comma-delimited lists for ease of reading in later
             self.incls = self.incls.tolist()
             self.periods = self.periods.tolist()
+            self.planet_radii = self.planet_radii.tolist()
             self.mutual_incls = self.mutual_incls.tolist()
             self.eccs = self.eccs.tolist()
             self.omegas = self.omegas.tolist()
             
         else:
             self.periods = None
+            self.planet_radii = None
             self.incls = None
             self.mutual_incls = None
             self.eccs = None
@@ -253,7 +258,7 @@ class Star:
 
     def reprJSON(self):
         return dict(kepid=self.kepid, age=self.age, frac_host=self.frac_host, midplane=self.midplane, prob_intact=self.prob_intact,
-        status=self.status, sigma_incl=self.sigma_incl, num_planets=self.num_planets, periods=self.periods, incls=self.incls, 
+        status=self.status, sigma_incl=self.sigma_incl, num_planets=self.num_planets, periods=self.periods, planet_radii=self.planet_radii, incls=self.incls, 
         mutual_incls=self.mutual_incls, eccs=self.eccs, omegas=self.omegas)  
 
 
