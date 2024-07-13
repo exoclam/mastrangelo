@@ -776,7 +776,7 @@ def draw_planet_radii(periods):
     radii = np.concatenate([x.ravel() for x in radii])
 
     """
-    Cull radius valley planets. Maybe 10%? 
+    Cull radius valley planets. Maybe 5%? 
     """
     # draw m, which is the power law slope between radius and period
     radius_valley_m_pdf = make_pdf_rows(m_grid, -0.09, 0.02, 0.04)
@@ -796,30 +796,39 @@ def draw_planet_radii(periods):
     upper = 10**(m * np.log10(periods) + a_upper)
     lower = 10**(m * np.log10(periods) + a_lower)
 
-    # resample 90% of the time if a planet lands in here
+    # resample 95% of the time if a planet lands in here
     for index, radius in enumerate(radii):
+
+        # only for gap planets
         while (radius >= lower[index]) & (radius <= upper[index]):
+
+            # 5% chance of grace 
+            grace = np.random.choice(['accept gap', 'reject gap'], p=[0.05, 0.95])
+            if grace=='accept gap':
+                break
+            elif grace=='reject gap':
+                pass
+
+            # resample until planet is out of gap
             if radius <= 2.:
                 radii[index] = np.random.choice(se_grid, size=1, p=q_se)[0]
             elif (radius > 2.) & (radius <= 4.):
                 radii[index] = np.random.choice(sn_grid, size=1, p=q_sn)[0]
             #print("try: ", radii[index], lower[index], upper[index])
 
-            # 10% chance of grace
-            grace = np.random.choice(['accept gap', 'reject gap'], p=[0.05, 0.95])
-            if grace=='accept gap':
-                break
-            elif grace=='reject gap':
-                continue
-
     """
     # plot to check if radius sampling and valley are working as expected; feed in: stats.loguniform.rvs(2, 300, size=1000)
     df = pd.DataFrame({'p': periods, 'r': radii, 'upper': upper, 'lower': lower})
     df = df.sort_values(by='p')
-    plt.scatter(df.p, df.r)
+    plt.scatter(df.p, df.r, s=10)
     plt.xscale('log')
-    plt.plot(df.p, df.upper, label='upper')
-    plt.plot(df.p, df.lower, label='lower')
+    plt.plot(df.p, df.upper, label='upper', color='k')
+    plt.plot(df.p, df.lower, label='lower', color='r')
+    plt.xlabel('period [days]')
+    plt.ylabel('radius [$R_{\oplus}$]')
+    plt.legend(bbox_to_anchor=(1., 1.05))
+    plt.tight_layout()
+    plt.savefig(path+'radius-v-period.png')
     plt.show()
     """
 

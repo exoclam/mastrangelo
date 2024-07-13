@@ -70,6 +70,8 @@ key = jax.random.key(42)
 # draw eccentricities using Van Eylen+ 2019
 model_flag = 'rayleigh'
 
+print(simulate_helpers.draw_planet_radii(stats.loguniform.rvs(2, 300, size=1000)))
+quit()
 """
 for j in range(30):
     # draw stellar radii using asymmetric errors from Berger+ 2020 sample
