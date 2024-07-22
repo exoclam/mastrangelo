@@ -171,7 +171,8 @@ class Star:
         self.frac_host = frac_host
         self.height = height
         
-        self.midplane = jax.random.uniform(key, minval=-np.pi/2, maxval=np.pi/2)
+        #self.midplane = jax.random.uniform(key, minval=-np.pi/2, maxval=np.pi/2)
+        self.midplane = np.random.uniform(low=-np.pi/2, high=np.pi/2) # JAX, but I need to figure out how to properly randomly draw
 
         # prescription for planet-making
         prob_intact = 0.18 + 0.1 * jax.random.normal(key) # from Lam & Ballard 2024; out of planet hosts
@@ -204,8 +205,9 @@ class Star:
             # draw inclinations from Gaussian distribution centered on midplane (invariable plane)        
             mu = self.midplane
             sigma = self.sigma_incl
-            self.incls = mu + sigma * jax.random.normal(key, shape=(self.num_planets,))
-
+            #self.incls = mu + sigma * jax.random.normal(key, shape=(self.num_planets,)) # JAX, but I need to figure out how to properly randomly draw
+            self.incls = np.random.normal(loc=mu, scale=sigma, size=self.num_planets)
+            
             # obtain mutual inclinations for plotting to compare {e, i} distributions
             self.mutual_incls = self.midplane - self.incls
 
@@ -219,7 +221,8 @@ class Star:
                 self.eccs = simulate_helpers.draw_eccentricity_van_eylen_vectorized(model_flag, self.num_planets)
 
             # draw longitudes of periastron
-            self.omegas = jax.random.uniform(key, shape=(self.num_planets,), minval=0, maxval=2*jnp.pi)
+            #self.omegas = jax.random.uniform(key, shape=(self.num_planets,), minval=0, maxval=2*jnp.pi) # JAX, but I need to figure out how to properly randomly draw
+            self.omegas = np.random.uniform(low=0, high=2*np.pi, size=self.num_planets)
 
             # turn to comma-delimited lists for ease of reading in later
             self.incls = self.incls.tolist()

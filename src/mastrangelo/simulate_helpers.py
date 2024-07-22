@@ -947,3 +947,78 @@ def draw_galactic_heights(df):
     df['height'] = df.height.fillna(method='ffill')
 
     return df 
+
+def completeness(physical, detected):
+    """
+    Calculate completeness (geometric transit + sensitivity = detected) across period and radius bins
+
+    Inputs:
+    - physical: all simulated 
+    - detected: 
+
+    Output:
+    - piv: Pandas pivot table of completeness fractions across period and radius bins
+    """
+
+    period_grid = np.logspace(np.log10(2), np.log10(300), 10)
+    radius_grid = np.linspace(1, 4, 10)
+
+    # physical occurrence map
+    df_physical = physical[['periods', 'planet_radii']]
+    df_physical['radius_bins'] = pd.cut(df_physical['planet_radii'], bins=radius_grid, include_lowest=True)
+    df_physical['period_bins'] = pd.cut(df_physical['periods'], bins=period_grid, include_lowest=True)
+
+    piv_physical = df_physical.groupby(['period_bins', 'radius_bins']).count().reset_index()
+    piv_physical = piv_physical.pivot(index='radius_bins', columns='period_bins', values='periods')
+
+    # detected occurrence map
+    df_detected = detected[['periods', 'planet_radii']]
+    df_detected['radius_bins'] = pd.cut(df_detected['planet_radii'], bins=radius_grid, include_lowest=True)
+    df_detected['period_bins'] = pd.cut(df_detected['periods'], bins=period_grid, include_lowest=True)
+
+    piv_detected = df_detected.groupby(['period_bins', 'radius_bins']).count().reset_index()
+    piv_detected = piv_detected.pivot(index='radius_bins', columns='period_bins', values='periods')
+
+    piv = piv_detected/piv_physical
+
+    return piv
+
+def adjust_for_completeness(df, completeness_map, radius_grid, period_grid):
+
+    """
+    For a given DataFrame of planets, group by radius and period bins, then take completeness map and adjust transit_status counts per cell
+
+    Inputs:
+    - df: DataFrame of planets
+    - completeness map: completeness map of detected vs generated planets, grouped by radius and period bins
+    - radius_grid: list of radius bins
+    - period_grid: list of period bins
+
+    Output:
+    - adjusted_count: completeness-adjusted count of planets
+    """
+
+    # For detected planets, use completeness map to get back an inferred physical occurrence
+    df['radius_bins'] = pd.cut(df['planet_radii'], bins=radius_grid, include_lowest=True)
+    df['period_bins'] = pd.cut(df['periods'], bins=period_grid, include_lowest=True)
+
+    """
+    berger_kepler_transiters = pd.merge(berger_kepler_transiters, completeness_map.stack().reset_index(), on=['radius_bins', 'period_bins'])
+    berger_kepler_transiters.columns = berger_kepler_transiters.columns.astype(str)
+    berger_kepler_transiters = berger_kepler_transiters.rename(columns={"0": "completeness"})
+    #berger_kepler_planets_temp['adjusted_transit'] = berger_kepler_planets_temp['']
+    print(berger_kepler_transiters)
+    """
+
+    #print(berger_kepler_transiters.groupby('kepid').count()['transit_status'].reset_index().groupby('transit_status').count().reset_index().kepid)
+    df_small = df[['radius_bins', 'period_bins', 'transit_status', 'geom_transit_status']]
+    df_small = pd.merge(df_small, completeness_map.stack().reset_index(), on=['radius_bins', 'period_bins'])
+    df_small.columns = df_small.columns.astype(str)
+    df_small = df_small.rename(columns={"0": "completeness"})
+    df_small = df_small.groupby(['radius_bins','period_bins']).sum(['transit_status','geom_transit_status']).reset_index()
+
+    # actually adjust transit_status counts
+    df_small['adjusted_transit_status'] = df_small['transit_status']/df_small['completeness']
+    adjusted_count = int(np.round(np.sum(df_small['adjusted_transit_status'])))
+
+    return adjusted_count

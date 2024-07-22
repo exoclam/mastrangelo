@@ -250,7 +250,7 @@ def calculate_transit_vectorized(P, star_radius, planet_radius, e, incl, omega, 
     
     # make sure arrays have explicitly float elements
     star_radius = star_radius.astype(float)
-    a = a.astype(float)    
+    a = a.astype(float)
     
     # calculate transit durations using Winn 2011 formula; same units as period
     #tdur = calculate_transit_duration(P, solar_radius_to_au(star_radius), 
@@ -264,14 +264,13 @@ def calculate_transit_vectorized(P, star_radius, planet_radius, e, incl, omega, 
     
     # calculate SN based on Eqn 4 in Christiansen et al 2012
     sn = np.array(calculate_sn_vectorized(P, np.array(planet_radius), star_radius, cdpps, tdur, unit_test_flag=False))
-    #print(sn)
-    #quit()
+    sn = sn.astype(float)
 
     # it's weird that I'm tabulating geometric transits now, but I get free info on it from NaNs in the S/N calculation portion
     geom_transit_status = np.where(np.isnan(sn), 0, 1)
 
     # NOW I can fill in NaNs with zeros
-    sn = sn.fillna(0)
+    sn = np.nan_to_num(sn, nan=0.) #sn.fillna(0)
     #print("number of nonzero SN: ", len(np.where(sn>0)[0]))
 
     # calculate Fressin detection probability based on S/N

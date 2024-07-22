@@ -17,6 +17,7 @@ from numpyro import distributions as dist, infer
 from numpyro_ext.distributions import MixtureGeneral
 from tqdm import tqdm
 from ast import literal_eval
+import seaborn as sns
 
 from transit_class import Population, Star
 import simulate_helpers
@@ -51,16 +52,16 @@ berger_kepler = pd.read_csv(path+'data/berger_kepler_stellar_fgk.csv') # crossma
 berger_kepler = berger_kepler[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
 						     'iso_age', 'iso_age_err1', 'iso_age_err2', 'iso_mass', 'iso_mass_err1', 'iso_mass_err2', 'rrmscdpp06p0', 'iso_rad', 'iso_rad_err1', 'iso_rad_err2']]
 #pnum = pd.read_csv(path+'data/pnum_plus_cands_fgk.csv') # planet hosts among crossmatched Berger sample
-#k = pnum.groupby('kepid').count().koi_count.reset_index().groupby('koi_count').count()
+
+# mise en place
 k = pd.Series([833, 134, 38, 15, 5, 0])
 k_score = pd.Series([631, 115, 32, 10, 4, 0])
 k_fpp = pd.Series([1088, 115, 34, 9, 3, 0])
 G = 6.6743e-8 # gravitational constant in cgs
 
-# how many params, how many dims, initialize cube
-ndim = 3
-nparams = 3
-cube = [0, 0, 0]
+period_grid = np.logspace(np.log10(2), np.log10(300), 10)
+radius_grid = np.linspace(1, 4, 10)
+height_bins = np.array([0., 150, 250, 400, 650, 3000])
 
 # create JAX random seed
 key = jax.random.key(42)
@@ -70,10 +71,11 @@ key = jax.random.key(42)
 # draw eccentricities using Van Eylen+ 2019
 model_flag = 'rayleigh'
 
-print(simulate_helpers.draw_planet_radii(stats.loguniform.rvs(2, 300, size=1000)))
-quit()
+#print(simulate_helpers.draw_planet_radii(stats.loguniform.rvs(2, 300, size=1000)))
+
 """
 for j in range(30):
+
     # draw stellar radii using asymmetric errors from Berger+ 2020 sample
     berger_kepler_temp = simulate_helpers.draw_asymmetrically(berger_kepler, 'iso_rad', 'iso_rad_err1', 'iso_rad_err2', 'stellar_radius')
 
@@ -100,6 +102,15 @@ for j in range(30):
     # create Star objects, with their planetary systems
     star_data = []
     for i in tqdm(range(len(berger_kepler))): # 100
+
+        #new_key, subkey = jax.random.split(key)
+        #del key  # The old key is consumed by split() -- we must never use it again.
+
+        #val = jax.random.normal(subkey)
+        #del subkey  # The subkey is consumed by normal().
+
+        #key = new_key  # new_key is safe to use in the next iteration.
+
         star = Star(berger_kepler_temp['kepid'][i], berger_kepler_temp['age'][i], berger_kepler_temp['stellar_radius'][i], berger_kepler_temp['stellar_mass'][i], berger_kepler_temp['rrmscdpp06p0'][i], frac_hosts[i], berger_kepler_temp['height'][i])
         star_update = {
             'kepid': star.kepid,
@@ -140,9 +151,11 @@ Assign galactic heights, transit status, and detected planets for each system.
 """
 physical_planet_occurrences = []
 detected_planet_occurrences_all = []
+adjusted_planet_occurrences_all = []
 transit_multiplicities_all = []
 geom_transit_multiplicities_all = []
-for i in range(3):
+completeness_all = []
+for i in range(30):
     # read in non-exploded generated system data, which includes non-planet hosts
     berger_kepler_all = pd.read_csv(path+'galactic-occurrence/systems/berger_kepler_planets_'+str(i)+'.csv')
     berger_kepler_all['periods'] = berger_kepler_all['periods'].apply(literal_eval_w_exceptions)
@@ -157,16 +170,20 @@ for i in range(3):
     zink_kepler = pd.DataFrame({'scale_height': np.array([120., 200., 300., 500., 800.]), 'occurrence': np.array([28, 29, 25, 27, 18]), 'occurrence_err1': np.array([5, 3, 3, 4, 4]), 'occurrence_err2': np.array([5, 3, 3, 3, 4])})
 
     # bin systems by galactic height
-    berger_kepler1 = berger_kepler_all.loc[berger_kepler_all['height'] < 150]
-    berger_kepler2 = berger_kepler_all.loc[(berger_kepler_all['height'] >= 150) & (berger_kepler_all['height'] < 250)]
-    berger_kepler3 = berger_kepler_all.loc[(berger_kepler_all['height'] >= 250) & (berger_kepler_all['height'] < 400)]
-    berger_kepler4 = berger_kepler_all.loc[(berger_kepler_all['height'] >= 400) & (berger_kepler_all['height'] < 650)]
-    berger_kepler5 = berger_kepler_all.loc[berger_kepler_all['height'] >= 650]
+    berger_kepler_all['height_bins'] = pd.cut(berger_kepler_all['height'], bins=height_bins, include_lowest=True)
+    print(np.array(berger_kepler_all.groupby(['height_bins']).count().reset_index()['kepid']))
+
+    berger_kepler1 = berger_kepler_all.loc[berger_kepler_all['height'] <= 150]
+    berger_kepler2 = berger_kepler_all.loc[(berger_kepler_all['height'] > 150) & (berger_kepler_all['height'] <= 250)]
+    berger_kepler3 = berger_kepler_all.loc[(berger_kepler_all['height'] > 250) & (berger_kepler_all['height'] <= 400)]
+    berger_kepler4 = berger_kepler_all.loc[(berger_kepler_all['height'] > 400) & (berger_kepler_all['height'] <= 650)]
+    berger_kepler5 = berger_kepler_all.loc[berger_kepler_all['height'] > 650]
 
     # bin planet hosts by galactic height
     berger_kepler_planets = berger_kepler_all.loc[berger_kepler_all['num_planets'] > 0]
     berger_kepler_planets = berger_kepler_planets.explode(['periods', 'planet_radii', 'incls', 'mutual_incls', 'eccs', 'omegas'])
 
+    # bin detected planet hosts by galactic height
     berger_kepler_planets1 = berger_kepler_planets.loc[berger_kepler_planets['height'] < 150]
     berger_kepler_planets2 = berger_kepler_planets.loc[(berger_kepler_planets['height'] >= 150) & (berger_kepler_planets['height'] < 250)]
     berger_kepler_planets3 = berger_kepler_planets.loc[(berger_kepler_planets['height'] >= 250) & (berger_kepler_planets['height'] < 400)]
@@ -174,6 +191,9 @@ for i in range(3):
     berger_kepler_planets5 = berger_kepler_planets.loc[berger_kepler_planets['height'] >= 650]
     berger_kepler_planets_counts = np.array([len(berger_kepler_planets1), len(berger_kepler_planets2), len(berger_kepler_planets3), len(berger_kepler_planets4), len(berger_kepler_planets5)])
     print("physical planet occurrences: ", berger_kepler_planets_counts)
+    berger_kepler_planets_counts = np.array(berger_kepler_planets.groupby(['height_bins']).count().reset_index()['kepid'])
+    print("physical planet occurrences: ", berger_kepler_planets_counts)
+    quit()
 
     planet_occurrence1 = len(berger_kepler_planets1)/len(np.unique(berger_kepler1['kepid']))
     planet_occurrence2 = len(berger_kepler_planets2)/len(np.unique(berger_kepler2['kepid']))
@@ -181,10 +201,11 @@ for i in range(3):
     planet_occurrence4 = len(berger_kepler_planets4)/len(np.unique(berger_kepler4['kepid']))
     planet_occurrence5 = len(berger_kepler_planets5)/len(np.unique(berger_kepler5['kepid']))
     physical_planet_occurrence = np.array([planet_occurrence1, planet_occurrence2, planet_occurrence3, planet_occurrence4, planet_occurrence5])
-    print("physical planet occurrence rates, per 100 stars: ", 100*physical_planet_occurrence)
+    #print("physical planet occurrence rates, per 100 stars: ", 100*physical_planet_occurrence)
     physical_planet_occurrences.append(100*physical_planet_occurrence)
 
     detected_planet_occurrences = []
+    adjusted_planet_occurrences = []
     transit_multiplicities = []
     geom_transit_multiplicities = []
 
@@ -196,11 +217,14 @@ for i in range(3):
         prob_detections, transit_statuses, sn, geom_transit_statuses = simulate_transit.calculate_transit_vectorized(berger_kepler_planets_temp.periods, 
                                         berger_kepler_planets_temp.stellar_radius, berger_kepler_planets_temp.planet_radii,
                                         berger_kepler_planets_temp.eccs, 
-                                        berger_kepler_planets_temp.mutual_incls, 
+                                        berger_kepler_planets_temp.incls, 
                                         berger_kepler_planets_temp.omegas, berger_kepler_planets_temp.stellar_mass,
                                         berger_kepler_planets_temp.rrmscdpp06p0, angle_flag=True) 
-        print("prob detections: ", prob_detections)
-        print("S/N: ", sn)
+
+        berger_kepler_planets_temp['transit_status'] = transit_statuses[0]
+        berger_kepler_planets_temp['prob_detections'] = prob_detections[0]
+        berger_kepler_planets_temp['sn'] = sn
+        berger_kepler_planets_temp['geom_transit_status'] = geom_transit_statuses
 
         """
         # Try the ExoMULT way (https://github.com/jonzink/ExoMult/blob/master/ScalingK2VIII/ExoMult.py)        
@@ -212,11 +236,6 @@ for i in range(3):
                                         berger_kepler_planets_temp.rrmscdpp06p0, angle_flag=True)
         """
 
-        berger_kepler_planets_temp['transit_status'] = transit_statuses[0]
-        berger_kepler_planets_temp['prob_detections'] = prob_detections[0]
-        berger_kepler_planets_temp['sn'] = sn
-        berger_kepler_planets_temp['geom_transit_status'] = geom_transit_statuses
-
         # isolate transiting planets
         berger_kepler_transiters = berger_kepler_planets_temp.loc[berger_kepler_planets_temp['transit_status']==1]
 
@@ -225,6 +244,11 @@ for i in range(3):
 
         # Read in pre-generated population
         #transiters_berger_kepler = pd.read_csv(path+'galactic-occurrence/systems/berger_kepler_planets_detected_'+str(i)+'.csv')
+
+        ### Completeness
+        # Calculate completeness map
+        completeness_map = simulate_helpers.completeness(berger_kepler_planets_temp, berger_kepler_transiters)
+        completeness_all.append(completeness_map)
 
         ### Calculate transit multiplicity and other Population-wide demographics
         #simulate_helpers.collect_galactic(berger_kepler_planets)
@@ -242,12 +266,12 @@ for i in range(3):
         geom_transit_multiplicity += [0.] * (6 - len(geom_transit_multiplicity)) # pad with zeros to match length of k
         geom_transit_multiplicities_all.append(geom_transit_multiplicity)
 
-        # calculate logLs 
-        #logL = collect_simulations.better_loglike(transit_multiplicity, k)
-        #logL_score = collect_simulations.better_loglike(transit_multiplicity, k_score)
-        #logL_fpp = collect_simulations.better_loglike(transit_multiplicity, k_fpp)
-
         """
+        # calculate logLs 
+        logL = collect_simulations.better_loglike(transit_multiplicity, k)
+        logL_score = collect_simulations.better_loglike(transit_multiplicity, k_score)
+        logL_fpp = collect_simulations.better_loglike(transit_multiplicity, k_fpp)
+
         # get intact and disrupted fractions (among planet-hosts)
         intact = berger_kepler_planets.loc[berger_kepler_planets['status']=='intact']
         disrupted = berger_kepler_planets.loc[berger_kepler_planets['status']=='disrupted']
@@ -267,6 +291,15 @@ for i in range(3):
         """
 
         # bin detected planet hosts by galactic height
+        height_bins = np.array([0., 150, 250, 400, 650, 3000])
+        berger_kepler_transiters['height_bins'] = pd.cut(berger_kepler_transiters['height'], height_bins)
+        print(berger_kepler_transiters['height_bins'])
+        print(berger_kepler_transiters.groupby(['height_bins']).count().reset_index())
+
+
+        # CAN I SPLIT OCCURRENCE RATES BY GALACTIC HEIGHT USING PD CUT INSTEAD OF MANUALLY SPLITTING THE DATAFRAME?
+        quit()
+
         berger_kepler_transiters1 = berger_kepler_transiters.loc[berger_kepler_transiters['height'] < 150]
         berger_kepler_transiters2 = berger_kepler_transiters.loc[(berger_kepler_transiters['height'] >= 150) & (berger_kepler_transiters['height'] < 250)]
         berger_kepler_transiters3 = berger_kepler_transiters.loc[(berger_kepler_transiters['height'] >= 250) & (berger_kepler_transiters['height'] < 400)]
@@ -279,29 +312,88 @@ for i in range(3):
         detected_planet_occurrence4 = len(berger_kepler_transiters4)/len(np.unique(berger_kepler4['kepid']))
         detected_planet_occurrence5 = len(berger_kepler_transiters5)/len(np.unique(berger_kepler5['kepid']))
         detected_planet_occurrence = np.array([detected_planet_occurrence1, detected_planet_occurrence2, detected_planet_occurrence3, detected_planet_occurrence4, detected_planet_occurrence5])
-        print("detected planet occurrences, per 100 stars: ", 100*detected_planet_occurrence)
-
         detected_planet_occurrences_all.append(detected_planet_occurrence)
+
+        # same, but adjust for period- and radius-dependent completeness 
+        len_berger_kepler_transiters1 = simulate_helpers.adjust_for_completeness(berger_kepler_transiters1, completeness_map, radius_grid, period_grid)
+        len_berger_kepler_transiters2 = simulate_helpers.adjust_for_completeness(berger_kepler_transiters2, completeness_map, radius_grid, period_grid)
+        len_berger_kepler_transiters3 = simulate_helpers.adjust_for_completeness(berger_kepler_transiters3, completeness_map, radius_grid, period_grid)
+        len_berger_kepler_transiters4 = simulate_helpers.adjust_for_completeness(berger_kepler_transiters4, completeness_map, radius_grid, period_grid)
+        len_berger_kepler_transiters5 = simulate_helpers.adjust_for_completeness(berger_kepler_transiters5, completeness_map, radius_grid, period_grid)
+ 
+        adjusted_planet_occurrence1 = len_berger_kepler_transiters1/len(np.unique(berger_kepler1['kepid']))
+        adjusted_planet_occurrence2 = len_berger_kepler_transiters2/len(np.unique(berger_kepler2['kepid']))
+        adjusted_planet_occurrence3 = len_berger_kepler_transiters3/len(np.unique(berger_kepler3['kepid']))
+        adjusted_planet_occurrence4 = len_berger_kepler_transiters4/len(np.unique(berger_kepler4['kepid']))
+        adjusted_planet_occurrence5 = len_berger_kepler_transiters5/len(np.unique(berger_kepler5['kepid']))
+        adjusted_planet_occurrence = np.array([adjusted_planet_occurrence1, adjusted_planet_occurrence2, adjusted_planet_occurrence3, adjusted_planet_occurrence4, adjusted_planet_occurrence5])
+        adjusted_planet_occurrences_all.append(adjusted_planet_occurrence)
 
     #transit_multiplicities_all.append(transit_multiplicities)
     #geom_transit_multiplicities_all.append(geom_transit_multiplicities)
     #detected_planet_occurrences_all.append(detected_planet_occurrences)
 
 #detected_planet_occurrences_all = 100 * np.array(detected_planet_occurrences_all)
+print(detected_planet_occurrences_all)
+quit()
 
-mean_transit_multiplicities = np.mean(transit_multiplicities_all, axis=0)
+mean_transit_multiplicities = 100*np.mean(transit_multiplicities_all, axis=0)
 print("mean transit multiplicities across all systems: ", mean_transit_multiplicities)
-mean_geom_transit_multiplicities = np.mean(geom_transit_multiplicities_all, axis=0)
-mean_detected_planet_occurrences = np.mean(detected_planet_occurrences_all, axis=0)
+mean_geom_transit_multiplicities = 100*np.mean(geom_transit_multiplicities_all, axis=0)
+mean_detected_planet_occurrences = 100*np.mean(detected_planet_occurrences_all, axis=0)
 print("scale heights: ", zink_kepler['scale_height'])
 print("mean detected planet occurrence: ", mean_detected_planet_occurrences)
-mean_physical_planet_occurrences = np.mean(physical_planet_occurrences, axis=0)
+mean_physical_planet_occurrences = 100*np.mean(physical_planet_occurrences, axis=0)
 print("mean physical planet occurrence: ", mean_physical_planet_occurrences)
-yerr = np.std(physical_planet_occurrences, axis=0)
+yerr = 100*np.std(physical_planet_occurrences, axis=0)
 print("std of transit multiplicities per bin: ", yerr)
+mean_adjusted_planet_occurrences_all = 100*np.mean(adjusted_planet_occurrences_all, axis=0)
+print("mean adjusted planet occurrences: ", mean_adjusted_planet_occurrences_all)
 
 #print(100.*np.max(detected_planet_occurrences_all, axis=0))
 #print(100.*np.min(detected_planet_occurrences_all, axis=0))
+
+"""
+Cell by cell completeness over radius and period space
+"""
+"""
+print(berger_kepler_planets_temp)
+print(berger_kepler_transiters)
+period_grid = np.logspace(np.log10(2), np.log10(300), 10)
+radius_grid = np.linspace(1, 4, 10)
+print("period grid: ", period_grid)
+print("radius grid: ", radius_grid)
+
+# physical occurrence map
+df_physical = berger_kepler_planets_temp[['periods', 'planet_radii']]
+df_physical['radius_bins'] = pd.cut(df_physical['planet_radii'], radius_grid)
+df_physical['period_bins'] = pd.cut(df_physical['periods'], period_grid)
+
+piv_physical = df_physical.groupby(['period_bins', 'radius_bins']).count().reset_index()
+piv_physical = piv_physical.pivot(index='radius_bins', columns='period_bins', values='periods')
+
+# detected occurrence map
+df_detected = berger_kepler_transiters[['periods', 'planet_radii']]
+df_detected['radius_bins'] = pd.cut(df_detected['planet_radii'], radius_grid)
+df_detected['period_bins'] = pd.cut(df_detected['periods'], period_grid)
+
+piv_detected = df_detected.groupby(['period_bins', 'radius_bins']).count().reset_index()
+piv_detected = piv_detected.pivot(index='radius_bins', columns='period_bins', values='periods')
+
+piv = piv_detected/piv_physical
+
+f, ((ax1)) = plt.subplots(1, 1, figsize=(6, 6))
+sns.heatmap(piv, yticklabels=np.around(radius_grid, 1), xticklabels=np.around(period_grid, 0), vmin=0., vmax=1., cmap='Blues', cbar_kws={'label': 'completeness'})
+ax1.set_xticks(ax1.get_xticks()[::2]) # sample every other tick, for cleanness
+ax1.set_yticks(ax1.get_yticks()[::2]) # sample every other tick, for cleanness
+ax1.invert_yaxis()
+plt.xlabel('period [days]')
+plt.ylabel('radius [$R_{\oplus}$]')
+#plt.xticks(ticks=period_grid)
+#plt.yticks(ticks=radius_grid)
+f.tight_layout(rect=[0, 0.03, 1, 0.95])
+plt.savefig(path+'galactic-occurrence/plots/completeness.png')
+"""
 
 """
 Fit a line through these points to get best-fit slope for comparison with Zink+ 2023
@@ -339,12 +431,7 @@ sampler = infer.MCMC(
 #print(np.array(zink_kepler['scale_height']), mean_physical_planet_occurrences)
 
 sampler.run(jax.random.PRNGKey(0), np.array(zink_kepler['scale_height']), yerr, y=mean_physical_planet_occurrences)
-
 inf_data = az.from_numpyro(sampler)
-
-print(len(inf_data.posterior.data_vars['m'][0].values))
-quit()
-
 
 print(az.summary(inf_data))
 m = inf_data.posterior.data_vars['m'].mean().values
@@ -362,21 +449,22 @@ b_max = inf_data.posterior.data_vars['b'].max().values
 print("slope max: ", m_std)
 print("intercept max: ", b_std)
 
-
-
 """
 Plot occurrence vs galactic height, as well as transit multiplicity detected yield
 """
+#print(physical_planet_occurrences)
+#quit()
+
 #plt.errorbar(x=zink_k2['scale_height'], y=zink_k2['occurrence'], yerr=(zink_k2['occurrence_err1'], zink_k2['occurrence_err2']), fmt='o', capsize=3, elinewidth=1, markeredgewidth=1, label='K2', alpha=0.5)
 plt.errorbar(x=zink_kepler['scale_height'], y=zink_kepler['occurrence'], yerr=(zink_kepler['occurrence_err1'], zink_kepler['occurrence_err2']), fmt='o', capsize=3, elinewidth=1, markeredgewidth=1, label='Kepler', alpha=0.5)
-plt.scatter(x=zink_kepler['scale_height'], y=100.*physical_planet_occurrence, color='red', label='model [actual]')
-plt.fill_between(x=zink_kepler['scale_height'], y1=100.*np.max(detected_planet_occurrences_all, axis=0), y2=100*np.min(detected_planet_occurrences_all, axis=0), color='green', alpha=0.3, label='model [detected]')
+#plt.scatter(x=zink_kepler['scale_height'], y=physical_planet_occurrence, color='red', label='model [actual]')
+plt.errorbar(x=zink_kepler['scale_height'], y=np.mean(physical_planet_occurrences, axis=0), yerr=np.std(physical_planet_occurrences, axis=0), fmt='o', capsize=3, elinewidth=1, markeredgewidth=1, color='red', alpha=0.5, label='model [actual]')
 plt.plot([100, 1000], b + m * np.array([100, 1000]), label='best-fit', alpha=0.3)
-for models in range(9):
-    plt.plot([100, 1000], b + m * np.array([100, 1000]), alpha=0.3)
-
-
-    
+plt.fill_between(x=[100, 1000], y1=b+b_std + (m+m_std)*np.array([100, 1000]), y2=b-b_std + (m-m_std)*np.array([100, 1000]), color='orange', alpha=0.3)
+plt.scatter(x=zink_kepler['scale_height'], y=mean_adjusted_planet_occurrences_all, label='model [adjusted]')
+plt.scatter(x=zink_kepler['scale_height'], y=mean_detected_planet_occurrences, label='model [detected]')
+#for models in range(9):
+#    plt.plot([100, 1000], b + m * np.array([100, 1000]), alpha=0.3)
 
 plt.xlim([100, 1000])
 plt.ylim([6, 100])
@@ -387,9 +475,11 @@ plt.ylabel("planets per 100 stars")
 plt.title('f=0.4 if <=2 Gyr; f=0.05 if >2 Gyr')
 plt.legend()
 plt.tight_layout()
-#plt.savefig(path+'galactic-occurrence/plots/test_model_vs_zink6.png')
+#plt.savefig(path+'galactic-occurrence/plots/model_vs_zink.png')
 plt.show()
 
+print("adjusted: ", mean_adjusted_planet_occurrences_all)
+print("detected: ", mean_detected_planet_occurrences)
 quit()
 
 # also plot transit multiplicity against Kepler yield, as a diagnostic
