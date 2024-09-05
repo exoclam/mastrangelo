@@ -68,7 +68,7 @@ class Population:
     """
 
     def __init__(
-        self, kepids, ages, threshold, frac1, frac2, **kwargs 
+        self, kepids, ages, threshold=None, frac1=None, frac2=None, **kwargs 
     ):
         self.kepids = jnp.array(kepids)
         self.ages = jnp.array(ages)
@@ -137,6 +137,55 @@ class Population:
         ages = self.ages
         host_frac = jnp.where(ages <= threshold, frac1, frac2)
 
+        return host_frac
+
+
+    def galactic_occurrence_bumpy(self, xs, ys):
+        """
+        Read off the probability of system having planets, based on a PDF built from MW-like galaxy simulations, eg. FIRE
+
+        Input: 
+        - xs: cosmic age, in Gyr [np.array of floats]
+        - ys: star formation rate [np.array of floats]
+
+        Output:
+        - host_frac: jnp.array of fraction of planet hosts [float]
+
+        """
+
+        ages = self.ages
+
+        # convert PDF's cosmic ages to stellar ages
+        #xs = np.max(xs) - xs
+
+        # OR convert stellar ages to cosmic ages...but first make sure none are older than Universe
+        #ages[ages > 14.] = 14.
+        ages = ages.at[ages > 14.].set(14.)
+        ages = 14. - ages
+
+        # snap age to nearest xs grid; also, np.searchsorted() needs indices to be in ascending order
+        #x = np.searchsorted(xs[::-1], ages, side = "right")
+        x = np.searchsorted(xs, ages)
+        x[x >= 200] = 199
+        #print(xs, x)
+
+        # get corresponding y value
+        host_frac = ys[x]
+
+        plot_df = pd.DataFrame({'ages': ages, 'host_frac': host_frac}).sort_values(by=['ages']).reset_index()
+
+        ### flip back host_frac so that it corresponds to stellar age once again; need to turn into array, otherwise it doesn't stick
+        plot_df['host_frac_reverse'] = np.array(plot_df['host_frac'][::-1])
+        #print(plot_df)
+        #print("mean f: ", np.mean(plot_df['host_frac_reverse']))
+        
+        """
+        plt.plot(plot_df['ages'], plot_df['host_frac_reverse'], color='powderblue')
+        plt.xlabel('stellar age [Gyr]')
+        plt.ylabel('planet host fraction')
+        plt.savefig(path+'galactic-occurrence/plots/bumpy-model.png')
+        plt.show()
+        """
         return host_frac
         
     

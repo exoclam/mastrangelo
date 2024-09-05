@@ -17,6 +17,7 @@ from tqdm import tqdm
 
 import matplotlib
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 #path = '/blue/sarahballard/c.lam/sculpting2/'
 path = '/Users/chrislam/Desktop/mastrangelo/' # new computer has different username
@@ -593,7 +594,7 @@ def draw_asymmetrically(df, mode_name, err1_name, err2_name, drawn):
         # symmetric uncertainties
         if err1==err2:
             draw = 0
-            while mode <= 0: # make sure the draw is positive
+            while draw <= 0: # make sure the draw is positive
                 draw = np.around(np.random.normal(mode, err1), 2)
 
         # asymmetric uncertainties
@@ -978,12 +979,11 @@ def completeness(physical, detected):
 
     piv_detected = df_detected.groupby(['period_bins', 'radius_bins']).count().reset_index()
     piv_detected = piv_detected.pivot(index='radius_bins', columns='period_bins', values='periods')
-
     piv = piv_detected/piv_physical
 
-    return piv
+    return piv, piv_physical, piv_detected
 
-def adjust_for_completeness(df, completeness_map, radius_grid, period_grid):
+def adjust_for_completeness(df, completeness_map, radius_grid, period_grid, flag="detected"):
 
     """
     For a given DataFrame of planets, group by radius and period bins, then take completeness map and adjust transit_status counts per cell
@@ -993,9 +993,11 @@ def adjust_for_completeness(df, completeness_map, radius_grid, period_grid):
     - completeness map: completeness map of detected vs generated planets, grouped by radius and period bins
     - radius_grid: list of radius bins
     - period_grid: list of period bins
+    - flag: DataFrame of either raw or detected planets, labeled "physical" or "detected"
 
     Output:
     - adjusted_count: completeness-adjusted count of planets
+    - df_piv: radius-and-period divided occurrence
     """
 
     # For detected planets, use completeness map to get back an inferred physical occurrence
@@ -1010,15 +1012,259 @@ def adjust_for_completeness(df, completeness_map, radius_grid, period_grid):
     print(berger_kepler_transiters)
     """
 
-    #print(berger_kepler_transiters.groupby('kepid').count()['transit_status'].reset_index().groupby('transit_status').count().reset_index().kepid)
-    df_small = df[['radius_bins', 'period_bins', 'transit_status', 'geom_transit_status']]
-    df_small = pd.merge(df_small, completeness_map.stack().reset_index(), on=['radius_bins', 'period_bins'])
+    df_small = df[['radius_bins', 'period_bins', 'transit_status']]
+    df_small = pd.merge(df_small, completeness_map.stack(dropna=False).reset_index(), on=['radius_bins', 'period_bins'])
     df_small.columns = df_small.columns.astype(str)
-    df_small = df_small.rename(columns={"0": "completeness"})
-    df_small = df_small.groupby(['radius_bins','period_bins']).sum(['transit_status','geom_transit_status']).reset_index()
 
-    # actually adjust transit_status counts
-    df_small['adjusted_transit_status'] = df_small['transit_status']/df_small['completeness']
-    adjusted_count = int(np.round(np.sum(df_small['adjusted_transit_status'])))
+    if flag=="detected":
+        df_small = df_small.rename(columns={"0": "completeness"})
+        df_small = df_small.groupby(['radius_bins','period_bins']).sum(['transit_status']).reset_index()
+        df_piv = df_small.pivot(index='radius_bins', columns='period_bins', values='transit_status')
 
-    return adjusted_count
+        # actually adjust transit_status counts
+        ###df_small['adjusted_transit_status'] = df_small['transit_status']/df_small['completeness']
+        df_piv = df_piv/completeness_map        
+        
+        ###adjusted_count = int(np.round(np.nansum(df_small['adjusted_transit_status'])))
+        adjusted_count = np.nansum(df_piv)
+
+    elif flag=="physical":
+        df_small = df_small.rename(columns={"0": "completeness"})
+        df_small['placeholder'] = np.where(df_small["completeness"].notna(), 1, np.nan) # count only cells with valid completeness
+        df_small = df_small.groupby(['radius_bins','period_bins']).sum(['placeholder']).reset_index()
+        df_piv = df_small.pivot(index='radius_bins', columns='period_bins', values='placeholder')
+
+        adjusted_count = np.nansum(df_piv)
+
+    else:
+        print("flag must be either 'physical' or 'detected'")
+
+    return adjusted_count, df_piv
+
+def collect_age_histograms(df, f=1.):
+
+    """
+    Collect age spread across different transit multiplicity bins, given a model. 
+    Transit multiplicities are capped at 3+
+
+    Inputs: 
+    - df: read-in DataFrames of the simulated planetary system products of injection_recovery_main.py
+    - f: fraction of planet-hosting stars (default is 1)
+
+    Outputs:
+    - total: Pandas DataFrame with yield counts for each planet row
+
+    """
+
+    # if f < 1, randomly steal some non-nontransits for the nontransits gang
+    samples_indices = df.sample(frac=1-f, replace=True, random_state=42).index 
+    df.loc[samples_indices, 'transit_status'] = 0
+    
+    # isolate transiting systems
+    transit = df.loc[df['transit_status']==1]
+
+    # create column counting number of planets per system
+    transit['yield'] = 1
+    #transit = transit.groupby(['kepid', 'iso_age'])[['yield']].count().reset_index()
+    transit['yield'] = transit.groupby(["kepid", "age"])["yield"].transform("count")
+    
+    # isolate non-transiting systems
+    #nontransit = df.loc[df['transit_status']==0] # that double counts systems with planets that transit/don't 
+    nontransit = df.loc[~df.kepid.isin(transit.kepid.unique())]
+    nontransit['yield'] = 0
+    
+    # re-combine, with yields
+    #nontransit['yield'] = 0
+    total = pd.concat([nontransit, transit])
+    #print(len(df.kepid.unique()), len(total.kepid.unique()))
+
+    #print(transit.groupby('kepid').count().reset_index().groupby('iso_teff').count())
+    
+    return total, transit, nontransit
+
+def zink_model(kappa, z_max, radius_type='se'):
+
+    """
+    Equation 4 from Zink+ 2023, describing occurrence rate over metalllicity, stellar type, galactic height
+    
+    Inputs:
+    - kappa: re-normalization factor 
+    - z_max: maximum galactic oscillation amplitude, which is more accurate than simply position in the sky for assessing thin/thick disk membership.
+    We are using this interchangeably with scale height [pc]
+    - radius_type: boolean flag noting whether we are modeling Super-Earths (se) or Sub-Neptunes (sn)
+
+    Output:
+    - predicted planet occurrence across scale heights, per 100 stars
+
+    Let's first simplify by assuming Z_max is independent of Teff and Fe/H.
+    """
+
+    lam = 0
+    teff = np.linspace(4000, 6500, 100)
+    feh = np.linspace(-0.5, 0.5, 100)
+    z_max = np.logspace(2, 3, 100)
+
+    lambda_se = 0.
+    lambda_se_err = 0.02
+    lambda_sn = 0.26
+    lambda_sn_err = 0.09
+
+    gamma_se = -0.14
+    gamma_se_err = 0.04
+    gamma_sn = -0.25
+    gamma_sn_err = 0.03
+
+    tau_se = -0.3
+    tau_se_err = 0.06
+    tau_sn = -0.37
+    tau_sn_err = 0.07
+
+    if radius_type == 'se':
+        tau = tau_se
+        tau_err = tau_se_err
+        gamma = gamma_se
+        gamma_err = gamma_se_err
+        lam = lambda_se
+        lambda_err = lambda_se_err
+    elif radius_type == 'sn':
+        tau = tau_sn
+        tau_err = tau_sn_err
+        gamma = gamma_sn
+        gamma_err = gamma_sn_err
+        lam = lambda_sn 
+        lambda_err = lambda_sn_err
+        
+    #gamma = 0
+    gamma_err = 0
+    lam = 0
+    lambda_err = 0
+    #feh = 0
+
+    teff = 5772 # Teff of the Sun in K
+
+    power = feh * lam + (teff/1000) * gamma
+    power_upper = feh * (lam+lambda_err) + (teff/1000) * (gamma+gamma_err)
+    power_lower = feh * (lam-lambda_err) + (teff/1000) * (gamma-gamma_err)
+
+    n = 100 * kappa * (10**power) * z_max**tau
+    n_upper = 100 * kappa * (10**power) * z_max**(tau+tau_err) # power_upper
+    n_lower = 100 * kappa * (10**power) * z_max**(tau-tau_err) # power_lower (lower envelope isn't necessarily taking the minus err for every param)
+
+    return n, n_upper, n_lower
+
+def zink_model_simple(z_max, tau):
+
+    teff_sun = 5772
+    gamma = -0.14
+    kappa = 1
+
+    power = (teff_sun/1000) * gamma # feh and lam set to 0
+    n = 100 * kappa * (10**power) * z_max**tau
+
+    return n
+
+def generate_models(df):
+    """
+    Generate galactic sculpting/enhancement models for galactic occurrence project. 
+    Models are valid if they produce a planet-host fraction of 0.3-0.5.
+    We assume an event that occurs at a threshold, changing the fraction of hosts from f1 to f2.
+
+    Input: 
+    - df: DataFrame of Berger+ 2020 Kepler-Gaia cross-match with iso_age column
+
+    Output:
+    - valid_models: DataFrame of valid models 
+    """
+
+    f1s = np.linspace(0, 1, 101) # planet host fraction before threshold age
+    f2s = np.linspace(0, 1, 101) # planet host fraction after threshold age
+    thresholds = np.linspace(1, 10, 19) # threshold age determining fraction of planet hosts in sub-population
+
+    threshold_col = []
+    f1_col = []
+    f2_col = []
+    f_col = []
+    for f1 in f1s:
+        for f2 in f2s:
+            for threshold in thresholds:
+                pop1 = len(df.loc[df['iso_age'] < threshold]) * f1
+                pop2 = len(df.loc[df['iso_age'] >= threshold]) * f2
+                f = (pop1+pop2)/len(df)
+                if (f <= 0.5) and (f >= 0.3):
+                    threshold_col.append(threshold)
+                    f1_col.append(f1)
+                    f2_col.append(f2)
+                    f_col.append(f)
+
+    valid_models = pd.DataFrame({'threshold': threshold_col, 'f1': f1_col, 'f2': f2_col, 'f': f_col})
+    
+    return valid_models
+
+def plot_galactic_occurrence_models(df):
+    """
+    Plot valid models
+
+    Input:
+    - df: DataFrame of valid models (valid_models)
+    """
+
+    x = np.linspace(0, 12, 100)
+
+    df_small_sculpting = df.loc[df['f1'] > df['f2']]
+
+    """
+    rows = np.linspace(0, len(df_small_sculpting), len(df_small_sculpting)+1)
+    indices = rows[25::161].astype(int) # try to time the cycle so that I get a qualitatively different model each time
+
+    df_smaller = df_small_sculpting.iloc[indices]
+    print(len(df_smaller))
+    """
+
+    df_smaller = subsample_models(df_small_sculpting)
+
+    #for row in range(len(df)):
+    #for row in range(20):
+    #for row in indices:
+    for row in range(len(df_smaller)):
+        df_row = df_smaller.iloc[row]
+        f1 = df_row['f1']
+        f2 = df_row['f2']
+        thresh = df_row['threshold']
+
+        y = np.where(x < thresh, f1, f2)
+
+        plt.plot(x, y, alpha=0.5, color='powderblue')
+    
+    plt.xlabel('age [Gyr]')
+    plt.ylabel('planet host fraction')
+    plt.ylim([0, 1])
+    plt.savefig(path+'galactic-occurrence/plots/valid_models.png')
+
+    return
+
+def subsample_models(df):
+    """
+    There are many valid galactic sculpting models. Let's just choose a representative sample of them. 
+    It is faster to grab indices first, append to a list, and then recreate one (1) DataFrame, instead of concat-ing 10x.
+
+    Input:
+    - df: DataFrame of valid models (valid_models)
+    """
+
+    keys = []
+
+    # retrieve only models that prescribe galactic sculpting
+    df_sculpting = df.loc[df['f1'] > df['f2']]
+
+    # randomly choose a model for each 0.5 Gyr-increment threshold
+    thresholds = np.linspace(1, 10, 19) # threshold age determining fraction of planet hosts in sub-population
+    for thresh in thresholds:
+        df_temp = df_sculpting.loc[df_sculpting['threshold'] == thresh]
+        #key = np.random.choice(np.arange(len(df_temp)))
+
+        key = df_temp.sample(n=1).index
+        keys.append(key[0])
+
+    model_sample = df_sculpting[df_sculpting.index.isin(keys)].sort_values(by=['threshold'])
+
+    return model_sample
