@@ -161,12 +161,24 @@ def transform_abscissae(a, b, loc, scale):
     a_transformed, b_transformed = (a - loc) / scale, (b - loc) / scale
     return a_transformed, b_transformed
 
+### bumpy 1
 a1, b1 = transform_abscissae(0, 14, 5, 0.5)
 a2, b2 = transform_abscissae(0, 14, 7, 0.5)
 a3, b3 = transform_abscissae(0, 14, 9, 3.5)
 trunc_norm_params = np.array([[a1, b1, 5, 0.5],
                         [a2, b2, 7, 0.5],
                         [a3, b3, 9, 3.5]])
+
+# Weight of each component
+weights = np.array([0.05, 0.1, 0.85])
+
+### bumpy 2
+a1, b1 = transform_abscissae(0, 14, 7, 0.5)
+a2, b2 = transform_abscissae(0, 14, 10, 0.5)
+a3, b3 = transform_abscissae(0, 14, 8, 3.5)
+trunc_norm_params = np.array([[a1, b1, 7, 0.5],
+                        [a2, b2, 10, 0.5],
+                        [a3, b3, 8, 3.5]])
 
 # Weight of each component
 weights = np.array([0.05, 0.1, 0.85])
@@ -179,7 +191,7 @@ y = numpy.fromiter((ss.truncnorm.rvs(*(trunc_norm_params[i])) for i in mixture_i
                    dtype=np.float64)
 
 # PDF support
-xs = np.linspace(0, 14, 200)
+xs = np.linspace(0, 14, 1000)
 
 # generate PDF
 ys = np.zeros_like(xs)
@@ -220,9 +232,9 @@ frac1 = 0.8
 frac2 = 0.27
 
 # does 0.4 < f < 0.5 (Lam & Ballard 2024)? I'll allow down to 0.3 as well (Zhu+ 2018)
-pop1 = len(berger_kepler.loc[berger_kepler['iso_age'] < threshold]) * frac1
-pop2 = len(berger_kepler.loc[berger_kepler['iso_age'] >= threshold]) * frac2
-print("f: ", (pop1+pop2)/len(berger_kepler))
+#pop1 = len(berger_kepler.loc[berger_kepler['iso_age'] < threshold]) * frac1
+#pop2 = len(berger_kepler.loc[berger_kepler['iso_age'] >= threshold]) * frac2
+#print("f: ", (pop1+pop2)/len(berger_kepler))
 
 physical_planet_occurrences = []
 detected_planet_occurrences_all = []
@@ -250,13 +262,15 @@ for j in range(10): # 10
     # create a Population object to hold information about the occurrence law governing that specific population
     #pop = Population(berger_kepler_temp['kepid'], berger_kepler_temp['age'], threshold, frac1, frac2)
     #frac_hosts = pop.galactic_occurrence_step(threshold, frac1, frac2)
+    #pop = Population(berger_kepler_temp['kepid'], berger_kepler_temp['age'])
+    #frac_hosts = pop.galactic_occurrence_bumpy(xs, ys)
     pop = Population(berger_kepler_temp['kepid'], berger_kepler_temp['age'])
-    frac_hosts = pop.galactic_occurrence_bumpy(xs, ys)
+    frac_hosts = pop.galactic_occurrence_monotonic()
 
     # create Star objects, with their planetary systems
     star_data = []
-    for i in tqdm(range(len(berger_kepler))): # 100
-    #for i in range(2000):
+    #for i in tqdm(range(len(berger_kepler))): # 100
+    for i in range(5000): # maybe a smaller sample size will inflate the errorbars to commensurate levels? 
 
         #new_key, subkey = jax.random.split(key)
         #del key  # The old key is consumed by split() -- we must never use it again.
@@ -265,8 +279,9 @@ for j in range(10): # 10
         #del subkey  # The subkey is consumed by normal().
 
         #key = new_key  # new_key is safe to use in the next iteration.
+        key, subkey = jax.random.split(key)
 
-        star = Star(berger_kepler_temp['kepid'][i], berger_kepler_temp['age'][i], berger_kepler_temp['stellar_radius'][i], berger_kepler_temp['stellar_mass'][i], berger_kepler_temp['rrmscdpp06p0'][i], frac_hosts[i], berger_kepler_temp['height'][i])
+        star = Star(berger_kepler_temp['kepid'][i], berger_kepler_temp['age'][i], berger_kepler_temp['stellar_radius'][i], berger_kepler_temp['stellar_mass'][i], berger_kepler_temp['rrmscdpp06p0'][i], frac_hosts[i], berger_kepler_temp['height'][i], subkey)
         star_update = {
             'kepid': star.kepid,
             'age': star.age,
@@ -311,6 +326,7 @@ for j in range(10): # 10
     berger_kepler_all['mutual_incls'] = berger_kepler_all['mutual_incls'].apply(literal_eval_w_exceptions)
     berger_kepler_all['eccs'] = berger_kepler_all['eccs'].apply(literal_eval_w_exceptions)
     berger_kepler_all['omegas'] = berger_kepler_all['omegas'].apply(literal_eval_w_exceptions)
+    print("TEST: ", berger_kepler_all['planet_radii'])
 
     ### Calculate occurrence rates and compare over galactic heights, a la Zink+ 2023 Fig 12
     zink_k2 = pd.DataFrame({'scale_height': np.array([120., 200., 300., 500.]), 'occurrence': np.array([45, 37, 34, 12]), 'occurrence_err1': np.array([21, 12, 11, 5]), 'occurrence_err2': np.array([15, 11, 8, 5])})
@@ -332,7 +348,9 @@ for j in range(10): # 10
     berger_kepler_planets = berger_kepler_planets.explode(['periods', 'planet_radii', 'incls', 'mutual_incls', 'eccs', 'omegas'])
     berger_kepler_planets = berger_kepler_planets.loc[(berger_kepler_planets['periods'] <= 40) & (berger_kepler_planets['periods'] > 1)] # limit periods to fairly compare with Zink+ 2023
     berger_kepler_planets = berger_kepler_planets.loc[berger_kepler_planets['planet_radii'] <= 2.] # limit radii to fairly compare with SEs in Zink+ 2023
+    print("NUMBER OF PLANETS: ", len(berger_kepler_planets))
     berger_kepler_planets_counts = np.array(berger_kepler_planets.groupby(['height_bins']).count().reset_index()['kepid'])
+    print("PLANETS BINNED INTO HEIGHTS: ", berger_kepler_planets_counts)
 
     # turn off usually; just for testing
     #berger_kepler_planets1 = berger_kepler_planets.loc[berger_kepler_planets['height'] <= 150]
@@ -346,6 +364,7 @@ for j in range(10): # 10
 
     # calculate "true" planet occurrence
     physical_planet_occurrence = berger_kepler_planets_counts/berger_kepler_counts
+
     #print(physical_planet_occurrence)
     #print("physical planet occurrence rates, per 100 stars: ", 100*physical_planet_occurrence)
     physical_planet_occurrences.append(100*physical_planet_occurrence)
@@ -472,6 +491,8 @@ for j in range(10): # 10
     #geom_transit_multiplicities_all.append(geom_transit_multiplicities)
     #detected_planet_occurrences_all.append(detected_planet_occurrences)
 
+print("YIELDS: ", physical_planet_occurrences)
+
 #detected_planet_occurrences_all = 100 * np.array(detected_planet_occurrences_all)
 mean_transit_multiplicities = 100*np.mean(transit_multiplicities_all, axis=0)
 print("mean transit multiplicities across all systems: ", mean_transit_multiplicities)
@@ -517,8 +538,8 @@ def model(x, tau, occurrence):
 ### but first, fit a power law 
 def power_model(x, yerr, y=None):
 
-    tau = numpyro.sample("tau", dist.Uniform(-0.5, 0.5))
-    occurrence = numpyro.sample("occurrence", dist.Uniform(0.1, 0.5))
+    tau = numpyro.sample("tau", dist.Uniform(-1., 0.))
+    occurrence = numpyro.sample("occurrence", dist.Uniform(0.01, 0.5))
 
     dln = 0.0011
     scaleMax= 1000
@@ -531,8 +552,8 @@ def power_model(x, yerr, y=None):
 
 # find MAP solution
 init_params = {
-    "tau": 0.,
-    "occurrence": 0.2,
+    "tau": -0.3,
+    "occurrence": 0.3,
 }
 run_optim = numpyro_ext.optim.optimize(
     power_model,
@@ -549,9 +570,9 @@ sampler = infer.MCMC(
     infer.NUTS(power_model, dense_mass=True,
         regularize_mass_matrix=False,
         init_strategy=numpyro.infer.init_to_value(values=opt_params)), 
-    num_warmup=500,
-    num_samples=2000,
-    num_chains=4,
+    num_warmup=1000,
+    num_samples=4000,
+    num_chains=2,
     progress_bar=True,
 )
 
@@ -584,15 +605,17 @@ our_yield_min = []
 our_models = []
 for j in range(len(inf_data.posterior.data_vars['occurrence'])):
 
-    tau = 0.5 * (inf_data.posterior.data_vars['tau'].values[0][j] + inf_data.posterior.data_vars['tau'].values[1][j])
-    occurrence = 0.5 * (inf_data.posterior.data_vars['occurrence'].values[0][j] + inf_data.posterior.data_vars['occurrence'].values[1][j])
+    #tau = 0.5 * (inf_data.posterior.data_vars['tau'].values[0][j] + inf_data.posterior.data_vars['tau'].values[1][j])
+    #occurrence = 0.5 * (inf_data.posterior.data_vars['occurrence'].values[0][j] + inf_data.posterior.data_vars['occurrence'].values[1][j])
+    tau = inf_data.posterior.data_vars['tau'].values[0][j]
+    occurrence = inf_data.posterior.data_vars['occurrence'].values[0][j] 
     #print(z_max, tau, occurrence)
     #quit()
     our_models.append(model(z_max, tau, occurrence))
 for temp_list in zip_longest(*our_models):
     our_yield_max.append(np.percentile(temp_list, 84)) # plus one sigma
     our_yield_min.append(np.percentile(temp_list, 16)) # minus one sigma
-plt.fill_between(z_max, our_yield_max, our_yield_min, color='#03acb1', alpha=0.3, label='our best-fit posteriors') 
+plt.fill_between(z_max, our_yield_max, our_yield_min, color='#03acb1', alpha=0.3, label='model best-fit posteriors') 
 
 ### continue plotting
 
@@ -618,7 +641,7 @@ plt.errorbar(x=zink_kepler['scale_height'], y=zink_kepler['occurrence'], yerr=(z
 plt.plot(z_max, metallicity_trend, label='metallicity trend', color='green', alpha=0.4, linestyle='--')
 
 # our simulated data
-plt.errorbar(x=zink_kepler['scale_height'], y=np.mean(physical_planet_occurrences, axis=0), yerr=np.std(physical_planet_occurrences, axis=0), fmt='o', capsize=3, elinewidth=1, markeredgewidth=1, color='red', alpha=0.5, label='this work, yield')
+plt.errorbar(x=zink_kepler['scale_height'], y=np.mean(physical_planet_occurrences, axis=0), yerr=np.std(physical_planet_occurrences, axis=0), fmt='o', capsize=3, elinewidth=1, markeredgewidth=1, color='red', alpha=0.5, label='model yield')
 
 # our best-fit model
 #plt.plot(z_max, model(z_max, tau_ours, occurrence_ours), color='red', label='this work, best-fit')
@@ -635,11 +658,11 @@ plt.xticks(ticks=[100,300, 1000])
 plt.yticks(ticks=[10, 30, 100])
 plt.xlabel("galactic scale height [pc]")
 plt.ylabel("planets per 100 stars")
-plt.title('m12i-like SFH')
+plt.title('m12z-like SFH')
 #plt.title('f=%1.2f' % frac1 + ' if <=%i ' % threshold + 'Gyr; f=%1.2f' % frac2 + ' if >%i ' % threshold + 'Gyr') 
 plt.legend(loc='upper left', bbox_to_anchor=[1.0, 1.05])
 plt.tight_layout()
-plt.savefig(path+'galactic-occurrence/plots/model_vs_zink_bumpy1.png', format='png', bbox_inches='tight')
+plt.savefig(path+'galactic-occurrence/plots/model_vs_zink_monotonic1.png', format='png', bbox_inches='tight')
 plt.show()
 
 """

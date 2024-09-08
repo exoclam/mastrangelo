@@ -12,6 +12,7 @@ from scipy.stats import gaussian_kde, loguniform
 from math import lgamma
 from simulate_helpers import *
 import matplotlib.pyplot as plt
+import matplotlib.pylab as pylab
 import timeit 
 from datetime import datetime
 import json
@@ -25,6 +26,13 @@ import simulate_helpers
 import simulate_transit
 #from simulate_helpers import * 
 #from simulate_transit import * 
+
+pylab_params = {'legend.fontsize': 'large',
+         'axes.labelsize': 'x-large',
+         'axes.titlesize':'x-large',
+         'xtick.labelsize':'large',
+         'ytick.labelsize':'large'}
+pylab.rcParams.update(pylab_params)
 
 #input_path = '/blue/sarahballard/c.lam/sculpting2/' # HPG
 #output_path = '/blue/sarahballard/c.lam/sculpting2/mastrangelo/' # HPG
@@ -139,10 +147,55 @@ class Population:
 
         return host_frac
 
+    def galactic_occurrence_monotonic(self):
+        """
+        Read off the probability of system having planets, based on a monotonic rise in planet formation with cosmic time.
+        a la m12z (the lowest mass galaxy in Garrison-Kimmel+ 2021). 
+
+        Output:
+        - host_frac: jnp.array of fraction of planet hosts [float]
+
+        """
+
+        ages = self.ages
+        
+        # convert stellar ages to cosmic ages...but first make sure none are older than Universe
+        ages = ages.at[ages > 14.].set(14.)
+        ages = 14. - ages
+
+        # present-day fraction
+        y2 = 0.5
+
+        # slope in log space
+        m = y2/14.
+
+        # calculate host fraction as a function of cosmic age
+        host_frac = m * ages
+
+        # should we add burstiness? perhaps via a GP kernel with correlated noise turned up? 
+
+        plot_df = pd.DataFrame({'ages': ages, 'host_frac': host_frac}).sort_values(by=['ages']).reset_index()
+
+        # flip back host_frac so that it corresponds to stellar age once again; need to turn into array, otherwise it doesn't stick
+        plot_df['host_frac_reverse'] = np.array(plot_df['host_frac'][::-1])
+        print("mean f: ", np.mean(plot_df['host_frac_reverse']))
+
+        """
+        f, ((ax)) = plt.subplots(1, 1, figsize=(10, 5))
+        plt.plot(plot_df['ages'], plot_df['host_frac_reverse'], color='powderblue')
+        plt.xlabel('stellar age [Gyr]')
+        plt.ylabel('planet host fraction')
+        plt.savefig(path+'galactic-occurrence/plots/montonic-model1.png')
+        plt.show()
+        quit()
+        """
+        return host_frac
+
 
     def galactic_occurrence_bumpy(self, xs, ys):
         """
         Read off the probability of system having planets, based on a PDF built from MW-like galaxy simulations, eg. FIRE
+        We use m12i from Ma+ 2017 and Garrison-Kimmel+ 2021. 
 
         Input: 
         - xs: cosmic age, in Gyr [np.array of floats]
@@ -155,37 +208,33 @@ class Population:
 
         ages = self.ages
 
-        # convert PDF's cosmic ages to stellar ages
-        #xs = np.max(xs) - xs
-
-        # OR convert stellar ages to cosmic ages...but first make sure none are older than Universe
-        #ages[ages > 14.] = 14.
+        # convert stellar ages to cosmic ages...but first make sure none are older than Universe
         ages = ages.at[ages > 14.].set(14.)
         ages = 14. - ages
 
         # snap age to nearest xs grid; also, np.searchsorted() needs indices to be in ascending order
         #x = np.searchsorted(xs[::-1], ages, side = "right")
         x = np.searchsorted(xs, ages)
-        x[x >= 200] = 199
-        #print(xs, x)
+        x[x >= 1000] = 999
 
         # get corresponding y value
         host_frac = ys[x]
 
         plot_df = pd.DataFrame({'ages': ages, 'host_frac': host_frac}).sort_values(by=['ages']).reset_index()
 
-        ### flip back host_frac so that it corresponds to stellar age once again; need to turn into array, otherwise it doesn't stick
+        # flip back host_frac so that it corresponds to stellar age once again; need to turn into array, otherwise it doesn't stick
         plot_df['host_frac_reverse'] = np.array(plot_df['host_frac'][::-1])
-        #print(plot_df)
-        #print("mean f: ", np.mean(plot_df['host_frac_reverse']))
-        
-        """
+        print("mean f: ", np.mean(plot_df['host_frac_reverse']))
+
+        #"""
+        f, ((ax)) = plt.subplots(1, 1, figsize=(10, 5))
         plt.plot(plot_df['ages'], plot_df['host_frac_reverse'], color='powderblue')
         plt.xlabel('stellar age [Gyr]')
         plt.ylabel('planet host fraction')
-        plt.savefig(path+'galactic-occurrence/plots/bumpy-model.png')
+        plt.savefig(path+'galactic-occurrence/plots/bumpy-model1.png')
         plt.show()
-        """
+        quit()
+        #"""
         return host_frac
         
     
@@ -202,6 +251,7 @@ class Star:
     - rrmscdpp06p0: 6-hr-window CDPP noise [ppm]
     - frac_host: calculated fraction of planet hosts 
     - height: galactic scale height [pc]
+    - subkey: JAX split key
 
     Output:
     - Star object, which is populated by Planets
@@ -209,7 +259,7 @@ class Star:
     """
 
     def __init__(
-        self, kepid, age, stellar_radius, stellar_mass, rrmscdpp06p0, frac_host, height, **kwargs 
+        self, kepid, age, stellar_radius, stellar_mass, rrmscdpp06p0, frac_host, height, subkey, **kwargs 
     ):
 
         self.kepid = kepid
@@ -224,7 +274,8 @@ class Star:
         self.midplane = np.random.uniform(low=-np.pi/2, high=np.pi/2) # JAX, but I need to figure out how to properly randomly draw
 
         # prescription for planet-making
-        prob_intact = 0.18 + 0.1 * jax.random.normal(key) # from Lam & Ballard 2024; out of planet hosts
+
+        prob_intact = 0.18 + 0.1 * jax.random.truncated_normal(key=subkey, lower=0, upper=1) # from Lam & Ballard 2024; out of planet hosts # np vs JAX bc of random key issues
         self.prob_intact = prob_intact
 
         p = simulate_helpers.assign_status(self.frac_host, self.prob_intact)
