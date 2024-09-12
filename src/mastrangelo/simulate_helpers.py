@@ -14,6 +14,7 @@ from math import lgamma
 import jax
 import jax.numpy as jnp
 from tqdm import tqdm
+import forecaster
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -692,14 +693,6 @@ def draw_star(df):
 
     return df
 
-def draw_radii():
-    """
-    There are many ways to get radii (Exoplanet Archive, Petigura+, etc.). 
-    Require user to specify where to get them from, so they critically reckon with their choices. 
-    """
-
-    return
-
 def galactic_occurrence_step(ages, threshold, frac1, frac2):
         """
         Calculate the probability of system having planets, based on its age and three free parameters
@@ -719,21 +712,94 @@ def galactic_occurrence_step(ages, threshold, frac1, frac2):
 
         return host_frac
 
-def hill_radius(a, m):
+def draw_planet_periods_and_radii(num_planets, alpha_se, alpha_sn, m_star):
+
     """
-    Calculate Hill radii among all consecutive pairs
+    It says it on the tin. 
+    This function draws period and radius "together" instead of separately bc masses (by way of radii) are required to calculate Hill radii when drawing periods.
+    So, periods are drawn from a loguniform distribution, then radii and masses are drawn, which enables a check on Hill radii. 
+    If a system fails the check, we sample everything again.
+
+    Inputs:
+    - num_planets: system multiplicity
+    - alpha_se: power law exponent for drawing Super-Earth radii, from Zink+ 2023
+    - alpha_sn: power law exponent for drawing Sub-Neptune radii, from Zink+ 2023
+    - m_star: stellar host mass, in Solar masses
+
+    Outputs:
+    - periods: list of planet periods, in days
+    - planet_radii: list of planet radii, in Earth radii
+    - planet_masses: list of planet masses, in Earth masses
+    """
+
+    hill_radius_check = True
+
+    # initially assign planet planet periods from loguniform distribution from 2 to 300 days
+    periods = jnp.sort(jnp.array(loguniform.rvs(2, 300, size=num_planets)))
+
+    # draw planet radii
+    planet_radii = draw_planet_radii(periods, alpha_se, alpha_sn)
+
+    # draw planet masses using Forecaster (Chen & Kipping 2016: https://iopscience.iop.org/article/10.3847/1538-4357/834/1/17)
+    # code from Ben Cassese: https://github.com/ben-cassese/astro-forecaster 
+    planet_masses = forecaster.Rpost2M(planet_radii,
+                                unit='Earth',
+                                classify=False)
+
+    # convert periods to semi-major axes
+    a = p_to_a(periods, m_star)
+
+    # check if stable by inspecting mutual Hill radii between all adjacent planet pairs
+    if num_planets > 1:
+        for i in range(num_planets-1):
+            j = i+1 # j is outer; i is inner
+
+            # calculate mutual Hill radius
+            r_hm = 0.5*(a[i]+a[j]) * ((earth_mass_to_cgs(planet_masses[i])+earth_mass_to_cgs(planet_masses[j]))/(3*solar_mass_to_cgs(m_star)))**(1./3)
+
+            k = (a[j]-a[i])/r_hm
+            if k <= 12: # https://academic.oup.com/mnras/article/527/1/79/7285825#429734139 and references therein; should it be lower? 
+                check = False
+
+    if hill_radius_check == False:
+        periods = draw_planet_periods_and_radii(num_planets, alpha_se, alpha_sn, m_star) # risky recursion of the day
+
+    return periods, planet_radii, planet_masses
+
+def draw_planet_periods(m, m_star):
+    """
+    Draw periods for all planets in a planetary system
 
     Input: 
-    - a: list of planets' semi-major axes
-    - m: list of planets' masses
+    - m: list of planets' masses [Earth masses]
+    - m_star: mass of stellar host [Solar masses]
 
     Output:
-    - check: does this set of planets contain no planet that falls within another's Hill radius? [bool]
+    - periods: list of planets' periods [days]
     """
 
-    return check
+    periods = jnp.array(loguniform.rvs(2, 300, size=self.num_planets))
 
-def draw_planet_radii(periods):
+    semi_major_axes = p_to_a(periods, m_star)
+
+    check = True # all is well
+    if len(semi_major_axes) > 1:
+        for i in range(len(semi_major_axes)-1):
+            j = i+1 # j is outer; i is inner
+
+            r_hm = 0.5*(a[i]+a[j]) * ((m[i]+m[j])/(3*m_star))**(1./3)
+
+            k = (a[j]-a[i])/r_hm
+
+            if k <= 12: # https://academic.oup.com/mnras/article/527/1/79/7285825#429734139 and references therein; should it be lower? 
+                check = False
+
+    if check == False:
+        periods = draw_planet_periods(m, m_star) # risky recursion of the day
+
+    return periods
+
+def draw_planet_radii(periods, alpha_se, alpha_sn):
     """
     Draw planet radii following Zink+ 2023: https://iopscience.iop.org/article/10.3847/1538-3881/acd24c#ajacd24cs4. 
     This starts with a simple power law.
@@ -742,6 +808,8 @@ def draw_planet_radii(periods):
 
     Input: 
     - periods: planet periods [np.array of floats]
+    - alpha_se: power relation between radius and the PDF of the radius distribution, for Super-Earths [float]
+    - alpha_sn: power relation between radius and the PDF of the radius distribution, for Sub-Neptunes [float]
 
     Output: 
     - radii: planet radii [np.array of floats]
@@ -758,8 +826,6 @@ def draw_planet_radii(periods):
     a_grid = np.linspace(np.log10(1), np.log10(4), 100) # for radius gap
 
     # draw alpha, which is the power relation between radius and the PDF of the radius distribution
-    alpha_se = np.random.normal(-1., 0.2)
-    alpha_sn = np.random.normal(-1.5, 0.1)
 
     # generate PDF for radius, and then normalize to sum to 1
     q_se = se_grid**alpha_se

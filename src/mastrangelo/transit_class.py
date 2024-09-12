@@ -17,6 +17,7 @@ import timeit
 from datetime import datetime
 import json
 from tqdm import tqdm 
+import forecaster
 
 import jax
 import jax.numpy as jnp
@@ -226,7 +227,7 @@ class Population:
         plot_df['host_frac_reverse'] = np.array(plot_df['host_frac'][::-1])
         print("mean f: ", np.mean(plot_df['host_frac_reverse']))
 
-        #"""
+        """
         f, ((ax)) = plt.subplots(1, 1, figsize=(10, 5))
         plt.plot(plot_df['ages'], plot_df['host_frac_reverse'], color='powderblue')
         plt.xlabel('stellar age [Gyr]')
@@ -234,7 +235,7 @@ class Population:
         plt.savefig(path+'galactic-occurrence/plots/bumpy-model1.png')
         plt.show()
         quit()
-        #"""
+        """
         return host_frac
         
     
@@ -251,6 +252,8 @@ class Star:
     - rrmscdpp06p0: 6-hr-window CDPP noise [ppm]
     - frac_host: calculated fraction of planet hosts 
     - height: galactic scale height [pc]
+    - alpha_se: power law exponent for Super-Earth radii
+    - alpha_sn: power law exponent for Sub-Neptune radii
     - subkey: JAX split key
 
     Output:
@@ -259,7 +262,7 @@ class Star:
     """
 
     def __init__(
-        self, kepid, age, stellar_radius, stellar_mass, rrmscdpp06p0, frac_host, height, subkey, **kwargs 
+        self, kepid, age, stellar_radius, stellar_mass, rrmscdpp06p0, frac_host, height, subkey, alpha_se, alpha_sn, **kwargs 
     ):
 
         self.kepid = kepid
@@ -269,12 +272,13 @@ class Star:
         self.rrmscdpp06p0 = rrmscdpp06p0
         self.frac_host = frac_host
         self.height = height
+        self.alpha_se = alpha_se
+        self.alpha_sn = alpha_sn
         
         #self.midplane = jax.random.uniform(key, minval=-np.pi/2, maxval=np.pi/2)
         self.midplane = np.random.uniform(low=-np.pi/2, high=np.pi/2) # JAX, but I need to figure out how to properly randomly draw
 
         # prescription for planet-making
-
         prob_intact = 0.18 + 0.1 * jax.random.truncated_normal(key=subkey, lower=0, upper=1) # from Lam & Ballard 2024; out of planet hosts # np vs JAX bc of random key issues
         self.prob_intact = prob_intact
 
@@ -295,12 +299,9 @@ class Star:
             self.planets.append(planet)
         """
         if self.num_planets!=None:
-            # assign planet planet periods from loguniform distribution from 2 to 300 days
-            # Sheila has code to factor in Hill radii for more realistic modeling
-            self.periods = jnp.array(loguniform.rvs(2, 300, size=self.num_planets))
 
-            # draw planet radii
-            self.planet_radii = simulate_helpers.draw_planet_radii(self.periods)
+            ### draw planet radii and periods such that they satisfy a Hill radius check and satisfy population statistics of radius valley. also draw planet masses.
+            self.periods, self.planet_radii, self.planet_masses = simulate_helpers.draw_planet_periods_and_radii(self.num_planets, self.alpha_se, self.alpha_sn, self.stellar_mass)
 
             # draw inclinations from Gaussian distribution centered on midplane (invariable plane)        
             mu = self.midplane
@@ -331,6 +332,7 @@ class Star:
             self.mutual_incls = self.mutual_incls.tolist()
             self.eccs = self.eccs.tolist()
             self.omegas = self.omegas.tolist()
+            self.planet_masses = self.planet_masses.tolist()
             
         else:
             self.periods = None
@@ -339,6 +341,7 @@ class Star:
             self.mutual_incls = None
             self.eccs = None
             self.omegas = None
+            self.planet_masses = None
 
     def assign_num_planets(x):
         """

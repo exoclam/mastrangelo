@@ -267,6 +267,9 @@ for j in range(10): # 10
     pop = Population(berger_kepler_temp['kepid'], berger_kepler_temp['age'])
     frac_hosts = pop.galactic_occurrence_monotonic()
 
+    alpha_se = np.random.normal(-1., 0.2)
+    alpha_sn = np.random.normal(-1.5, 0.1)
+
     # create Star objects, with their planetary systems
     star_data = []
     #for i in tqdm(range(len(berger_kepler))): # 100
@@ -281,7 +284,7 @@ for j in range(10): # 10
         #key = new_key  # new_key is safe to use in the next iteration.
         key, subkey = jax.random.split(key)
 
-        star = Star(berger_kepler_temp['kepid'][i], berger_kepler_temp['age'][i], berger_kepler_temp['stellar_radius'][i], berger_kepler_temp['stellar_mass'][i], berger_kepler_temp['rrmscdpp06p0'][i], frac_hosts[i], berger_kepler_temp['height'][i], subkey)
+        star = Star(berger_kepler_temp['kepid'][i], berger_kepler_temp['age'][i], berger_kepler_temp['stellar_radius'][i], berger_kepler_temp['stellar_mass'][i], berger_kepler_temp['rrmscdpp06p0'][i], frac_hosts[i], berger_kepler_temp['height'][i], subkey, alpha_se, alpha_sn)
         star_update = {
             'kepid': star.kepid,
             'age': star.age,
