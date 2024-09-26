@@ -146,6 +146,20 @@ class Population:
         ages = self.ages
         host_frac = jnp.where(ages <= threshold, frac1, frac2)
 
+        """
+        f, ((ax)) = plt.subplots(1, 1, figsize=(10, 5))
+        x = np.linspace(0, 14, 1000)
+        y = np.where(x <= threshold, frac1, frac2)
+        plt.plot(x, y, color='powderblue')
+        plt.xlabel('stellar age [Gyr]')
+        plt.ylabel('planet host fraction')
+        plt.title('f=%1.2f' % frac1 + ' if <=%i ' % threshold + 'Gyr; f=%1.2f' % frac2 + ' if >%i ' % threshold + 'Gyr') 
+        plt.ylim([0, 1.05])
+        plt.savefig(path+'galactic-occurrence/plots/step-model2.png')
+        plt.show()
+        quit()
+        """
+
         return host_frac
 
     def galactic_occurrence_monotonic(self):
@@ -159,10 +173,7 @@ class Population:
         """
 
         ages = self.ages
-        
-        # convert stellar ages to cosmic ages...but first make sure none are older than Universe
-        ages = ages.at[ages > 14.].set(14.)
-        ages = 14. - ages
+        x = np.linspace(0, 14, 1000)
 
         # present-day fraction
         y2 = 0.5
@@ -170,8 +181,25 @@ class Population:
         # slope in log space
         m = y2/14.
 
+        # model as a function of cosmic time, before applying to stellar sample
+        """
+        y = -m * x + y2 
+        plt.plot(x, y, color='steelblue')
+        plt.xlabel('cosmic age [Gyr]')
+        plt.ylabel('planet host fraction')
+        plt.ylim([0,1])
+        plt.show()
+        plt.savefig(path+'galactic-occurrence/plots/monotonic-model-galactic-time1.png')
+        quit()
+        """
+
+        # convert stellar ages to cosmic ages...but first make sure none are older than Universe
+        ages = ages.at[ages > 14.].set(14.)
+        ages = 14. - ages
+
         # calculate host fraction as a function of cosmic age
         host_frac = m * ages
+        host_frac = -m * ages + y2
 
         # should we add burstiness? perhaps via a GP kernel with correlated noise turned up? 
 
@@ -180,16 +208,18 @@ class Population:
         # flip back host_frac so that it corresponds to stellar age once again; need to turn into array, otherwise it doesn't stick
         plot_df['host_frac_reverse'] = np.array(plot_df['host_frac'][::-1])
         print("mean f: ", np.mean(plot_df['host_frac_reverse']))
+        print(len(plot_df))
 
-        """
+        #"""
         f, ((ax)) = plt.subplots(1, 1, figsize=(10, 5))
-        plt.plot(plot_df['ages'], plot_df['host_frac_reverse'], color='powderblue')
+        plt.plot(plot_df['ages'][::100], plot_df['host_frac_reverse'][::100], color='powderblue')
         plt.xlabel('stellar age [Gyr]')
         plt.ylabel('planet host fraction')
-        plt.savefig(path+'galactic-occurrence/plots/montonic-model1.png')
+        plt.ylim([0,1])
+        plt.savefig(path+'galactic-occurrence/plots/monotonic-model1.png')
         plt.show()
         quit()
-        """
+        #"""
         return host_frac
 
 
@@ -279,7 +309,8 @@ class Star:
         self.midplane = np.random.uniform(low=-np.pi/2, high=np.pi/2) # JAX, but I need to figure out how to properly randomly draw
 
         # prescription for planet-making
-        prob_intact = 0.18 + 0.1 * jax.random.truncated_normal(key=subkey, lower=0, upper=1) # from Lam & Ballard 2024; out of planet hosts # np vs JAX bc of random key issues
+        prob_intact = 0.18 + 0.1 * jax.random.truncated_normal(key=subkey, lower=0, upper=1) # from Lam & Ballard 2024; out of planet hosts
+        #prob_intact = scipy.stats.truncnorm.rvs(0, 1, loc=0.18, scale=0.1)  # np vs JAX bc of random key issues
         self.prob_intact = prob_intact
 
         p = simulate_helpers.assign_status(self.frac_host, self.prob_intact)

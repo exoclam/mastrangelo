@@ -791,6 +791,7 @@ def model_van_eylen(star_age, df, model_flag, cube):
             sigma = np.pi/22.5 # 8 degrees, per Fig 6 in Fabrycky 2012
             
         # draw period from loguniform distribution from 2 to 300 days
+        # P = draw_planet_periods()
         P = np.array(loguniform.rvs(2, 300, size=num_planets))
         periods.append(P)
 
