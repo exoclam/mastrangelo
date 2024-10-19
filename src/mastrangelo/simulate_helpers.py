@@ -15,6 +15,12 @@ import jax
 import jax.numpy as jnp
 from tqdm import tqdm
 import forecaster
+import astropy.coordinates as coord
+import astropy.units as u
+from astropy.table import Table, join
+from pyia import GaiaData
+import gala.dynamics as gd
+import gala.potential as gp
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -585,8 +591,23 @@ def draw_asymmetrically(df, mode_name, err1_name, err2_name, drawn):
     # in case df is broken up by planet and not star
     uniques = df.drop_duplicates(subset=['kepid'])
     
-    x = np.linspace(0.5, 10, 100)
-    modes = np.ones(len(uniques))
+    if drawn=='age':
+        x = np.linspace(0.5, 13.5, 100)
+    elif drawn=='stellar_radius':
+        x = np.linspace(0.5, 5., 100)
+    elif drawn=='stellar_mass':
+        x = np.linspace(0.5, 2.5, 100)
+
+    """
+    TESTING
+    print("x: ", x)
+    pdf = make_pdf_rows(x, mode, err1, err2)
+    pdf = pdf/np.sum(pdf)
+    draw = np.around(np.random.choice(x, p=pdf), 2)
+    print("draw: ", draw)
+    """
+
+    draws = np.ones(len(uniques))
     for i in range(len(uniques)):
         mode = uniques.iloc[i][mode_name]
         err1 = uniques.iloc[i][err1_name]
@@ -611,9 +632,9 @@ def draw_asymmetrically(df, mode_name, err1_name, err2_name, drawn):
                 print(i, pdf, mode, err1, err2)
                 break
         
-        modes[i] = mode
+        draws[i] = draw
 
-    df[drawn] = modes
+    df[drawn] = draws
 
     # break back out into planet rows and forward fill across systems
     df = uniques.merge(df, how='right')
@@ -629,7 +650,7 @@ def draw_star_ages(df):
     # in case df is broken up by planet and not star
     uniques = df.drop_duplicates(subset=['kepid'])
 
-    x = np.linspace(0.5, 10, 100)
+    x = np.linspace(0.5, 13.5, 100)
     ages = np.ones(len(uniques))
     for i in range(len(uniques)):
         mode = uniques.iloc[i].iso_age
@@ -1014,6 +1035,53 @@ def draw_galactic_heights(df):
     df['height'] = df.height.fillna(method='ffill')
 
     return df 
+
+def gala_galactic_heights(df):
+
+    """
+    Use gala (Price-Whelan+) to simulate orbits of Gaia stars and get their Z_maxes
+    """
+
+    # merge sample with Megan Bedell's Gaia-Kepler cross-match because those save info on RV, proper motion, parallax, etc required for Gala
+    berger = Table.read(path+'data/berger_kepler_stellar_fgk.csv')
+    megan = Table.read(path+'data/kepler_dr3_good.fits')
+    merged = join(berger, megan, keys='kepid')
+    merged.rename_column('parallax_2', 'parallax')
+
+    # mise en place
+    with coord.galactocentric_frame_defaults.set("v4.0"):
+        galcen_frame = coord.Galactocentric()
+
+    sun_xyz = u.Quantity(
+        [-galcen_frame.galcen_distance, 0 * u.kpc, galcen_frame.z_sun]  # x  # y  # z
+    )
+
+    sun_w0 = gd.PhaseSpacePosition(pos=sun_xyz, vel=galcen_frame.galcen_v_sun)
+
+    mw_potential = gp.MilkyWayPotential()
+
+    sun_orbit = mw_potential.integrate_orbit(sun_w0, dt=0.5 * u.Myr, t1=0, t2=16 * u.Gyr)
+
+    star_gaia = GaiaData(merged)
+
+    star_gaia_c = star_gaia.get_skycoord()
+
+    star_galcen = star_gaia_c.transform_to(galcen_frame)
+
+    star_w0 = gd.PhaseSpacePosition(star_galcen.data)
+
+    # calculate orbits and retrieve Z_maxes
+    zmaxes = []
+    for i in tqdm(range(len(star_gaia))):
+    #for i in range(4):
+        star_orbit = mw_potential.integrate_orbit(star_w0[i], t=sun_orbit.t)
+        zmax = star_orbit.zmax().value
+        zmaxes.append(zmax)
+
+    zmaxes_df = pd.DataFrame({'height': zmaxes})
+    zmaxes_df.to_csv(path+'data/zmaxes.csv', index=False)
+    
+    return zmaxes
 
 def completeness(physical, detected):
     """

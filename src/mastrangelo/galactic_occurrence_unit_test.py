@@ -24,6 +24,8 @@ import seaborn as sns
 from itertools import zip_longest
 import numpy.ma as ma # for masked arrays
 
+from astropy.table import Table, join
+
 from transit_class import Population, Star
 import simulate_helpers
 import simulate_transit
@@ -61,10 +63,27 @@ def literal_eval_w_exceptions(x):
 path = '/Users/chrislam/Desktop/mastrangelo/' # new computer has different username
 
 berger_kepler = pd.read_csv(path+'data/berger_kepler_stellar_fgk.csv') # crossmatched with Gaia via Bedell
+print(berger_kepler.head())
 
+# this is just for calculating scale height using gala, which requires the Bedell cross-match
+berger = Table.read(path+'data/berger_kepler_stellar_fgk.csv')
+megan = Table.read(path+'data/kepler_dr3_good.fits')
+merged = join(berger, megan, keys='kepid')
+merged.rename_column('parallax_2', 'parallax')
+merged.rename_column('feh_err1_2', 'feh_err1')
+merged.rename_column('feh_err2_2', 'feh_err2')
+berger_kepler = merged.to_pandas()
+print(berger_kepler.head())
+quit()
 # make berger_kepler more wieldy
 berger_kepler = berger_kepler[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
 						     'iso_age', 'iso_age_err1', 'iso_age_err2', 'iso_mass', 'iso_mass_err1', 'iso_mass_err2', 'rrmscdpp06p0', 'iso_rad', 'iso_rad_err1', 'iso_rad_err2']]
+
+# enrich berger_kepler with z_maxes using gala. just needed to run that one time to output data/zmaxes.csv
+#z_maxes = simulate_helpers.gala_galactic_heights(berger_kepler)
+z_maxes = pd.read_csv(path+'data/zmaxes.csv')
+berger_kepler['height'] = z_maxes*1000
+berger_kepler = berger_kepler.dropna(subset=['height']).reset_index() # we are dropping like 30K stars by doing this! 
 
 # mise en place
 k = pd.Series([833, 134, 38, 15, 5, 0])
@@ -248,15 +267,16 @@ Back to regular programming
 
 # 1) 1 Gyr; 0.5; 0.30 --> f = 0.30
 # 2) 2 Gyr; 1.0; 0.20 --> f = 0.32
-# 3) 6 Gyr; 0.8; 0.05 --> f = 0.48
-# 4) 8 Gyr; 0.65; 0.05 --> f = 0.50
-# 5) 2 Gyr; 1.; 0.3 --> f = 0.40
-# 6) 4 Gyr; 1.; 0.15 --> f = 0.47
+# 3) 6 Gyr; 0.8; 0.05 --> f = 0.48 (now 8 Gyr)
+# 4) 8 Gyr; 0.65; 0.05 --> f = 0.50 (now 6 Gyr)
+# 5) 2 Gyr; 1.; 0.3 --> f = 0.40 (now 12 Gyr)
+# 6) 4 Gyr; 1.; 0.15 --> f = 0.47 (now 10 Gyr)
 # bumpy:  f = 0.42
 # monotonic: f = 0.29
-threshold = 6
-frac1 = 0.8
-frac2 = 0.05
+# monotonic: y1 = 0.05, y2 = 0.7, f = 0.43
+threshold = 6. # 13.7 minus stellar age, then round
+frac1 = 0.05
+frac2 = 0.65
 
 # does 0.4 < f < 0.5 (Lam & Ballard 2024)? I'll allow down to 0.3 as well (Zhu+ 2018)
 #pop1 = len(berger_kepler.loc[berger_kepler['iso_age'] < threshold]) * frac1
@@ -293,15 +313,29 @@ for j in range(3): # 10
     berger_kepler_temp = simulate_helpers.draw_asymmetrically(berger_kepler_temp, 'iso_mass', 'iso_mass_err1', 'iso_mass_err2', 'stellar_mass')
 
     # draw galactic height based on age, using Ma+ 2017 relation
-    berger_kepler_temp = simulate_helpers.draw_galactic_heights(berger_kepler_temp)
+    #berger_kepler_temp = simulate_helpers.draw_galactic_heights(berger_kepler_temp)
 
     ### create a Population object to hold information about the occurrence law governing that specific population
-    #pop = Population(berger_kepler_temp['kepid'], berger_kepler_temp['age'], threshold, frac1, frac2)
-    #frac_hosts = pop.galactic_occurrence_step(threshold, frac1, frac2)
+    # STEP
+    pop = Population(berger_kepler_temp['kepid'], berger_kepler_temp['age'], threshold, frac1, frac2)
+    frac_hosts = pop.galactic_occurrence_step(threshold, frac1, frac2)
+
+    # BUMPY
     #pop = Population(berger_kepler_temp['kepid'], berger_kepler_temp['age'])
     #frac_hosts = pop.galactic_occurrence_bumpy(xs, ys)
-    pop = Population(berger_kepler_temp['kepid'], berger_kepler_temp['age'])
-    frac_hosts = pop.galactic_occurrence_monotonic()
+
+    # MONOTONIC
+    #pop = Population(berger_kepler_temp['kepid'], berger_kepler_temp['age'])
+    #y1 = 0.05 # 0.15
+    #y2 = 0.8 # 0.75
+    #frac_hosts = pop.galactic_occurrence_monotonic(y1, y2)
+
+    # PIECEWISE
+    #y1 = 0.05
+    #y2 = 0.95
+    #threshold = 3.
+    #pop = Population(berger_kepler_temp['kepid'], berger_kepler_temp['age'])
+    #frac_hosts = pop.galactic_occurrence_piecewise(y1, y2, threshold)
     print("MEAN FRAC HOSTS: ", np.mean(frac_hosts))
 
     alpha_se = np.random.normal(-1., 0.2)
@@ -658,7 +692,7 @@ print("occurrence std: ", occurrence_std)
 
 ### set up plotting
 fig, ax1 = plt.subplots(1, 1, figsize=(10, 5))
-left, bottom, width, height = [0.16, 0.25, 0.15, 0.15]
+left, bottom, width, height = [0.16, 0.3, 0.15, 0.15]
 ax2 = fig.add_axes([left, bottom, width, height])
 
 #ax1.plot(z_max, model(z_max, init_params['tau'], init_params['occurrence']), color='k', label='opt params model')
@@ -741,19 +775,41 @@ ax1.set_yticks(ticks=[10, 30, 100])
 ax1.set_xlabel("galactic scale height [pc]")
 ax1.set_ylabel("planets per 100 stars")
 #plt.title('m12z-like SFH')
-ax1.set_title('f=%1.2f' % frac1 + ' if <=%i ' % threshold + 'Gyr; f=%1.2f' % frac2 + ' if >%i ' % threshold + 'Gyr') 
+#ax1.set_title('f=%1.2f' % frac1 + ' if <=%i ' % threshold + 'Gyr; f=%1.2f' % frac2 + ' if >%i ' % threshold + 'Gyr') 
 ax1.legend(loc='upper left', bbox_to_anchor=[1.0, 1.05])
 
 # plot inset of model
-x = np.linspace(0, 14, 1000)
-y = np.where(x <= threshold, frac1, frac2)
+"""
 ax2.plot(x, y, color='powderblue')
 ax2.set_xlabel('stellar age [Gyr]')
 ax2.set_ylabel('host fraction')
 ax2.set_ylim([0, 1.05])
-        
+"""
+
+# step model
+x = np.linspace(0, 14, 1000)
+y = np.where(x <= threshold, frac1, frac2)
+
+"""
+# monotonic inset
+x = np.linspace(0, 14, 1000)
+m = (y2-y1)/14.
+y = m * x + y1
+"""
+
+"""
+# piecewise inset
+x = np.linspace(0, 14, 1000)
+m = (y2-y1)/(14 - threshold)
+y = np.where(x < threshold, y1, y1 + m * (x-threshold))
+"""
+ax2.plot(x, y, color='powderblue')
+ax2.set_xlabel('cosmic age [Gyr]')
+ax2.set_ylabel('planet host fraction')
+ax2.set_ylim([0,1])
+
 fig.tight_layout()
-plt.savefig(path+'galactic-occurrence/plots/monotonic-model.png', format='png', bbox_inches='tight')
+plt.savefig(path+'galactic-occurrence/plots/model_vs_zink_step4_gala.png', format='png', bbox_inches='tight')
 plt.show()
 
 """

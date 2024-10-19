@@ -144,7 +144,12 @@ class Population:
         """
 
         ages = self.ages
-        host_frac = jnp.where(ages <= threshold, frac1, frac2)
+
+        # convert stellar ages to cosmic ages...but first make sure none are older than Universe
+        ages = ages.at[ages > 13.7].set(13.7)
+        cosmic_ages = 13.7 - ages
+
+        host_frac = jnp.where(cosmic_ages <= threshold, frac1, frac2)
 
         """
         f, ((ax)) = plt.subplots(1, 1, figsize=(10, 5))
@@ -162,10 +167,14 @@ class Population:
 
         return host_frac
 
-    def galactic_occurrence_monotonic(self):
+    def galactic_occurrence_monotonic(self, y1, y2):
         """
         Read off the probability of system having planets, based on a monotonic rise in planet formation with cosmic time.
         a la m12z (the lowest mass galaxy in Garrison-Kimmel+ 2021). 
+
+        Inputs:
+        - y1: initial fraction of planet hosts, at cosmic time of 0 Gyrs
+        - y2: present-day fraction of planet hosts, at cosmic time of 14 Gyrs
 
         Output:
         - host_frac: jnp.array of fraction of planet hosts [float]
@@ -175,51 +184,110 @@ class Population:
         ages = self.ages
         x = np.linspace(0, 14, 1000)
 
-        # present-day fraction
-        y2 = 0.5
-
-        # slope in log space
-        m = y2/14.
+        # calculate slope in log space
+        m = (y2-y1)/14.
 
         # model as a function of cosmic time, before applying to stellar sample
         """
-        y = -m * x + y2 
+        y = m * x + y1
         plt.plot(x, y, color='steelblue')
         plt.xlabel('cosmic age [Gyr]')
         plt.ylabel('planet host fraction')
         plt.ylim([0,1])
+        #plt.savefig(path+'galactic-occurrence/plots/monotonic-model1.png')
         plt.show()
-        plt.savefig(path+'galactic-occurrence/plots/monotonic-model-galactic-time1.png')
         quit()
         """
 
         # convert stellar ages to cosmic ages...but first make sure none are older than Universe
         ages = ages.at[ages > 14.].set(14.)
-        ages = 14. - ages
+        cosmic_ages = 14. - ages
 
         # calculate host fraction as a function of cosmic age
-        host_frac = m * ages
-        host_frac = -m * ages + y2
+        #host_frac = m * ages
+        host_frac = m * cosmic_ages + y1
+        print("mean f: ", np.mean(host_frac))
 
         # should we add burstiness? perhaps via a GP kernel with correlated noise turned up? 
 
-        plot_df = pd.DataFrame({'ages': ages, 'host_frac': host_frac}).sort_values(by=['ages']).reset_index()
+        plot_df = pd.DataFrame({'cosmic_ages': cosmic_ages, 'host_frac': host_frac, 'stellar_ages': ages}).sort_values(by=['cosmic_ages']).reset_index()
 
         # flip back host_frac so that it corresponds to stellar age once again; need to turn into array, otherwise it doesn't stick
         plot_df['host_frac_reverse'] = np.array(plot_df['host_frac'][::-1])
-        print("mean f: ", np.mean(plot_df['host_frac_reverse']))
-        print(len(plot_df))
 
-        #"""
+        """
         f, ((ax)) = plt.subplots(1, 1, figsize=(10, 5))
-        plt.plot(plot_df['ages'][::100], plot_df['host_frac_reverse'][::100], color='powderblue')
+        plt.plot(plot_df['cosmic_ages'][::100], plot_df['host_frac_reverse'][::100], color='powderblue')
         plt.xlabel('stellar age [Gyr]')
         plt.ylabel('planet host fraction')
         plt.ylim([0,1])
         plt.savefig(path+'galactic-occurrence/plots/monotonic-model1.png')
         plt.show()
         quit()
-        #"""
+        """
+
+        #return np.array(plot_df['host_frac_reverse'])
+        return host_frac
+
+    
+    def galactic_occurrence_piecewise(self, y1, y2, threshold):
+        """
+        Planet formation starts constant, then a merger-like event causes planet formation to increase, potentially to a plateau. 
+
+        Inputs:
+        - y1: initial fraction of planet hosts, at cosmic time of 0 Gyrs
+        - y2: present-day fraction of planet hosts
+        - threshold: piecewise knee location in Gyrs, in cosmic time
+
+        Output:
+        - host_frac: jnp.array of fraction of planet hosts [float]
+
+        """
+
+        ages = self.ages
+        x = np.linspace(0, 14, 1000)
+
+        # calculate slope in log space
+        m = (y2-y1)/(14 - threshold)
+
+        # model as a function of cosmic time, before applying to stellar sample
+        y = np.where(x < threshold, y1, y1 + m * (x-threshold))
+        """
+        plt.plot(x, y, color='steelblue')
+        plt.xlabel('cosmic age [Gyr]')
+        plt.ylabel('planet host fraction')
+        plt.ylim([0,1])
+        plt.savefig(path+'galactic-occurrence/plots/piecewise-model1.png')
+        #plt.show()
+        """
+
+        # convert stellar ages to cosmic ages...but first make sure none are older than Universe
+        ages = ages.at[ages > 14.].set(14.)
+        cosmic_ages = 14. - ages
+
+        # calculate host fraction as a function of cosmic age
+        host_frac = np.where(cosmic_ages < threshold, y1, y1 + m * (cosmic_ages-threshold))
+        print("mean f: ", np.mean(host_frac))
+
+        # should we add burstiness? perhaps via a GP kernel with correlated noise turned up? 
+
+        plot_df = pd.DataFrame({'cosmic_ages': cosmic_ages, 'host_frac': host_frac, 'stellar_ages': ages}).sort_values(by=['cosmic_ages']).reset_index()
+
+        # flip back host_frac so that it corresponds to stellar age once again; need to turn into array, otherwise it doesn't stick
+        plot_df['host_frac_reverse'] = np.array(plot_df['host_frac'][::-1])
+
+        """
+        f, ((ax)) = plt.subplots(1, 1, figsize=(10, 5))
+        plt.plot(plot_df['cosmic_ages'][::100], plot_df['host_frac_reverse'][::100], color='powderblue')
+        plt.xlabel('stellar age [Gyr]')
+        plt.ylabel('planet host fraction')
+        plt.ylim([0,1])
+        plt.savefig(path+'galactic-occurrence/plots/monotonic-model1.png')
+        plt.show()
+        quit()
+        """
+
+        #return np.array(plot_df['host_frac_reverse'])
         return host_frac
 
 
