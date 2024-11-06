@@ -54,6 +54,13 @@ for i in range(10):
 quit()
 """
 
+planets = [ 785, 3156, 4996, 3196, 1357]
+stars = [ 1885, 8321, 13565,  8510,  3636]
+ratios = [0.41644562, 0.37928134, 0.36830077, 0.37555817, 0.37321232]
+print(np.sum(np.array(planets)))
+print(np.sum(np.array(stars)))
+print(np.sum(np.array(ratios)))
+
 def literal_eval_w_exceptions(x):
     try:
         return literal_eval(str(x))   
@@ -63,27 +70,136 @@ def literal_eval_w_exceptions(x):
 path = '/Users/chrislam/Desktop/mastrangelo/' # new computer has different username
 
 berger_kepler = pd.read_csv(path+'data/berger_kepler_stellar_fgk.csv') # crossmatched with Gaia via Bedell
-print(berger_kepler.head())
+trilegal_kepler = pd.read_csv(path+'galactic-occurrence/data/trilegal_kepler_output204292233874.dat', sep='\s+')
+#trilegal_kepler['phot_prec'] = simulate_helpers.kepmag_to_noise_floor(trilegal_kepler['Kepler'])
+_, trilegal_kepler['cdpp'] = simulate_helpers.kepmag_to_cdpp(berger_kepler, trilegal_kepler['Kepler'])
+
+"""
+### VISUALIZE RELATION BETWEEN TRILEGAL KEPLER MAGNITUDE AND PROCEDURALLY GENERATED CDPPS
+plt.scatter(trilegal_kepler['Kepler'], trilegal_kepler['cdpp'], s=10)
+#plt.scatter(berger_kepler['kepmag'], berger_kepler['rrmscdpp06p0'], s=10)
+plt.xlabel('Kp mag')
+plt.ylabel('CDPP rms [ppm]')
+plt.xlim([8, 16])
+plt.ylim([0, 320])
+plt.show()
+quit()
+"""
+
+"""
+### TURN ON FOR BOUMA GYRO AGES 
+bouma_ages = pd.read_csv(path+'data/table_star_gyro_agesformatted.csv') # Bouma+ 2024 gyrochronology ages
+bouma_ages = bouma_ages.loc[bouma_ages['flag_gyro_quality'] > 10] # Bouma+ Sec 4.1 outlines quality flags for different science cases
 
 # this is just for calculating scale height using gala, which requires the Bedell cross-match
 berger = Table.read(path+'data/berger_kepler_stellar_fgk.csv')
 megan = Table.read(path+'data/kepler_dr3_good.fits')
-merged = join(berger, megan, keys='kepid')
+bouma = Table.read(path+'data/table_star_gyro_agesformatted.csv')
+
+merged_berger_bedell = join(berger, megan, keys='kepid') # 70K stars
+merged_berger_bouma = join(berger, bouma, keys='KIC') # 13.8K stars
+merged_bouma_bedell = join(bouma, megan, keys_right='source_id', keys_left='dr3_source_id') # 20K stars
+
+#merged = join(merged_bouma_bedell, megan, keys='kepid') # berger vs merged_berger_bouma vs merged_bedell_bouma
+merged = join(merged_berger_bouma, megan, keys_right='source_id', keys_left='dr3_source_id')
+merged.rename_column('kepid_2', 'kepid')
 merged.rename_column('parallax_2', 'parallax')
 merged.rename_column('feh_err1_2', 'feh_err1')
 merged.rename_column('feh_err2_2', 'feh_err2')
-berger_kepler = merged.to_pandas()
-print(berger_kepler.head())
-quit()
+#merged.rename_column('radius_2', 'radius')
+#merged.rename_column('mass_2', 'mass')
+#merged.rename_column('teff_2', 'teff')
+#merged.rename_column('radius_err1_2', 'radius_err1')
+#merged.rename_column('radius_err2_2', 'radius_err2')
+#merged.rename_column('mass_err1_2', 'mass_err1')
+#merged.rename_column('mass_err2_2', 'mass_err2')
+#merged.rename_column('teff_err1_2', 'teff_err1')
+#merged.rename_column('teff_err2_2', 'teff_err2')
+berger_kepler = merged_berger_bedell.to_pandas() 
+"""
+berger_kepler = berger_kepler.drop_duplicates(subset=['kepid'])
+
 # make berger_kepler more wieldy
-berger_kepler = berger_kepler[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
-						     'iso_age', 'iso_age_err1', 'iso_age_err2', 'iso_mass', 'iso_mass_err1', 'iso_mass_err2', 'rrmscdpp06p0', 'iso_rad', 'iso_rad_err1', 'iso_rad_err2']]
+#berger_kepler = berger_kepler[['kepid', 'iso_teff', 'iso_teff_err1', 'iso_teff_err2','feh_x','feh_err1','feh_err2',
+#						     'iso_age', 'iso_age_err1', 'iso_age_err2', 'iso_mass', 'iso_mass_err1', 'iso_mass_err2', 'rrmscdpp06p0', 'iso_rad', 'iso_rad_err1', 'iso_rad_err2']]
+
+"""
+### what happens to the Zink plot if it's just a narrow slice of cooler stars? 
+merged_sub = merged_df.loc[(merged_df['iso_teff'] >= 5000) & (merged_df['iso_teff'] < 5500)]
+"""
 
 # enrich berger_kepler with z_maxes using gala. just needed to run that one time to output data/zmaxes.csv
 #z_maxes = simulate_helpers.gala_galactic_heights(berger_kepler)
 z_maxes = pd.read_csv(path+'data/zmaxes.csv')
-berger_kepler['height'] = z_maxes*1000
-berger_kepler = berger_kepler.dropna(subset=['height']).reset_index() # we are dropping like 30K stars by doing this! 
+berger_kepler['height'] = z_maxes * 1000
+#height_bins = np.array([0., 150, 250, 400, 650, 3000])
+#print(np.histogram(z_maxes*1000, bins=height_bins))
+#plt.hist(z_maxes*1000, bins=height_bins)
+#plt.xscale('log')
+#plt.show()
+
+"""
+### AGE AND ZMAX CHECKS
+### Compare gala heights to Berger+ 2020 ages
+berger_kepler = berger_kepler.dropna(subset=['height', 'iso_age', 'iso_age_err1', 'iso_age_err2']).reset_index() # 36K stars from 70K
+heights = []
+ages = [] 
+for i in range(10):
+    berger_kepler_temp = simulate_helpers.draw_asymmetrically(berger_kepler, 'iso_age', 'iso_age_err1', 'iso_age_err2', 'age')
+    berger_kepler_temp = simulate_helpers.draw_galactic_heights(berger_kepler_temp)
+    #heights.append(berger_kepler['height']) # for gala height
+    heights.append(berger_kepler_temp['height']*1000) # for Ma+ 2017 height
+    ages.append(berger_kepler_temp['age'])
+heights_clean = np.concatenate(np.array(heights))
+ages_clean = np.concatenate(np.array(ages))
+temp_df = pd.DataFrame({'height': heights_clean, 'age': ages_clean})
+temp_df = temp_df.loc[(temp_df['height'] <= 0.8) & (temp_df['age'] <= 5)] # 213K
+
+plt.hist2d(temp_df['age'], temp_df['height'], bins=100)
+plt.xlabel('Berger+ 2020 isochrone age [Gyr]')
+plt.ylabel(r'gala-calculated $Z_{max}$ [kpc]')
+#plt.xlim([0, 14])
+#plt.ylim([0, 3])
+plt.tight_layout()
+#plt.savefig(path+'galactic-occurrence/plots/isochrone_age_vs_gala_heights_binned.png')
+plt.show()
+quit()
+
+### Compare gala heights to Bouma+ 2024 ages
+berger_kepler = berger_kepler.dropna(subset=['height', 'gyro_median', 'gyro_+1sigma', 'gyro_-1sigma']).reset_index() # we are dropping like 30K stars by doing this!
+berger_kepler['gyro_median'] = berger_kepler['gyro_median']/1000
+berger_kepler['gyro_+1sigma'] = berger_kepler['gyro_+1sigma']/1000
+berger_kepler['gyro_-1sigma'] = berger_kepler['gyro_-1sigma']/1000
+heights = []
+ages = [] 
+for i in range(10):
+    berger_kepler_temp = simulate_helpers.draw_asymmetrically(berger_kepler, 'gyro_median', 'gyro_+1sigma', 'gyro_-1sigma', 'gyro_age')
+    heights.append(berger_kepler['height'])
+    ages.append(berger_kepler_temp['gyro_age'])
+heights_clean = np.concatenate(np.array(heights))
+ages_clean = np.concatenate(np.array(ages))
+
+plt.hist2d(ages_clean, heights_clean, bins=100)
+plt.xlabel('Bouma+ 2024 gyrochronological age [Gyr]')
+plt.ylabel(r'gala-calculated $Z_{max}$ [kpc]')
+plt.xlim([0, 4])
+#plt.yscale('log')
+plt.ylim([0, 2])
+plt.tight_layout()
+#plt.savefig(path+'galactic-occurrence/plots/gyro_age_vs_gala_heights_binned.png')
+plt.show()
+quit()
+"""
+
+"""
+### TESTING BOUMA GYRO AGES VS GALACTIC HEIGHT
+berger_kepler = berger_kepler.dropna(subset=['height', 'gyro_median', 'gyro_+1sigma', 'gyro_-1sigma']).reset_index() # we are dropping like 30K stars by doing this!
+berger_kepler['gyro_median'] = berger_kepler['gyro_median']/1000
+berger_kepler['gyro_+1sigma'] = berger_kepler['gyro_+1sigma']/1000
+berger_kepler['gyro_-1sigma'] = berger_kepler['gyro_-1sigma']/1000
+berger_kepler['height'] = berger_kepler['height']*1000
+#print(list(berger_kepler.columns))
+"""
 
 # mise en place
 k = pd.Series([833, 134, 38, 15, 5, 0])
@@ -275,8 +391,8 @@ Back to regular programming
 # monotonic: f = 0.29
 # monotonic: y1 = 0.05, y2 = 0.7, f = 0.43
 threshold = 6. # 13.7 minus stellar age, then round
-frac1 = 0.05
-frac2 = 0.65
+frac1 = 0.4
+frac2 = 0.4
 
 # does 0.4 < f < 0.5 (Lam & Ballard 2024)? I'll allow down to 0.3 as well (Zhu+ 2018)
 #pop1 = len(berger_kepler.loc[berger_kepler['iso_age'] < threshold]) * frac1
@@ -284,13 +400,14 @@ frac2 = 0.65
 #print("f: ", (pop1+pop2)/len(berger_kepler))
 
 physical_planet_occurrences = []
+physical_planet_occurrences_precut = []
 detected_planet_occurrences_all = []
 adjusted_planet_occurrences_all = []
 transit_multiplicities_all = []
 geom_transit_multiplicities_all = []
 completeness_all = []
 # for each model, draw around stellar age errors 10 times
-for j in range(3): # 10
+for j in range(30): # 10
 
     #new_key, subkey = jax.random.split(key)
     #del key  # The old key is consumed by split() -- we must never use it again.
@@ -303,14 +420,17 @@ for j in range(3): # 10
 
     # draw stellar radii using asymmetric errors from Berger+ 2020 sample
     berger_kepler_temp = simulate_helpers.draw_asymmetrically(berger_kepler, 'iso_rad', 'iso_rad_err1', 'iso_rad_err2', 'stellar_radius')
+    #berger_kepler_temp = simulate_helpers.draw_asymmetrically(berger_kepler, 'radius', 'radius_err1', 'radius_err2', 'stellar_radius')
 
     # draw stellar ages in the same way
     berger_kepler_temp = simulate_helpers.draw_asymmetrically(berger_kepler_temp, 'iso_age', 'iso_age_err1', 'iso_age_err2', 'age')
-    #berger_kepler_temp = draw_star_ages(berger_kepler) # in the future, I should read in from a fixed set of 30 pre-made DataFrames
+    #berger_kepler_temp = simulate_helpers.draw_asymmetrically(berger_kepler_temp, 'gyro_median', 'gyro_+1sigma', 'gyro_-1sigma', 'age')
+    #berger_kepler_temp = simulate_helpers.draw_star_ages(berger_kepler) # in the future, I should read in from a fixed set of 30 pre-made DataFrames
     # but wait until we decide for sure whether to use Berger ages or some other age prescription
 
     # draw stellar masses in the same way
     berger_kepler_temp = simulate_helpers.draw_asymmetrically(berger_kepler_temp, 'iso_mass', 'iso_mass_err1', 'iso_mass_err2', 'stellar_mass')
+    #berger_kepler_temp = simulate_helpers.draw_asymmetrically(berger_kepler_temp, 'mass', 'mass_err1', 'mass_err2', 'stellar_mass')
 
     # draw galactic height based on age, using Ma+ 2017 relation
     #berger_kepler_temp = simulate_helpers.draw_galactic_heights(berger_kepler_temp)
@@ -376,6 +496,10 @@ for j in range(3): # 10
 
     ### Convert to Pandas
     berger_kepler_all = pd.DataFrame.from_records(star_data)
+    print("BEFORE DROPPING HEIGHTLESS STARS: ", 100*np.nansum(berger_kepler_all.num_planets)/len(berger_kepler_all))
+    berger_kepler_all = berger_kepler_all.dropna(subset='height') # DO I NEED THIS? OTHERWISE IT SEEMS THE HEIGHT AND AGE BINS GO POORLY
+    print("AFTER DROPPING HEIGHTLESS STARS: ", 100*np.nansum(berger_kepler_all.num_planets)/len(berger_kepler_all))
+
     #berger_kepler_all = berger_kepler_all.replace('  ', ',').replace('\r\n ', ',')
     #berger_kepler_all = ast.literal_eval(dat2)
     ###berger_kepler_all.to_csv(path+'galactic-occurrence/systems/3gyr_p5_p2/berger_kepler_planets_'+str(j)+'.csv', index=False)
@@ -391,6 +515,8 @@ for j in range(3): # 10
     berger_kepler_all['mutual_incls'] = berger_kepler_all['mutual_incls'].apply(literal_eval_w_exceptions)
     berger_kepler_all['eccs'] = berger_kepler_all['eccs'].apply(literal_eval_w_exceptions)
     berger_kepler_all['omegas'] = berger_kepler_all['omegas'].apply(literal_eval_w_exceptions)
+    print(len(berger_kepler), len(berger_kepler_all))
+    #print(100*np.nansum(berger_kepler_all.num_planets)/len(berger_kepler_all))
 
     """
     # make Figure 1 for paper: color-coded ages by scale height for a fiducial stellar sample
@@ -421,9 +547,10 @@ for j in range(3): # 10
     #zink_se_kepler = pd.DataFrame({'scale_height': np.array([120., 200., 300., 500., 800.]), 'occurrence': np.array([28, 29, 25, 27, 18]), 'occurrence_err1': np.array([5, 3, 3, 4, 4]), 'occurrence_err2': np.array([5, 3, 3, 3, 4])})
 
     # bin systems by galactic height
+    #height_bins = np.linspace(0, 3000, 20) # DO I NEED FINER BINS LIKE THIS? 
     berger_kepler_all['height_bins'] = pd.cut(berger_kepler_all['height'], bins=height_bins, include_lowest=True)
     berger_kepler_counts = np.array(berger_kepler_all.groupby(['height_bins']).count().reset_index()['kepid'])
-
+    print("ONE: ", np.sum(berger_kepler_counts))
     # turn off usually; just for testing
     #berger_kepler_stars1 = berger_kepler_all.loc[berger_kepler_all['height'] <= 150]
     #berger_kepler_stars2 = berger_kepler_all.loc[(berger_kepler_all['height'] > 150) & (berger_kepler_all['height'] <= 250)]
@@ -434,11 +561,41 @@ for j in range(3): # 10
     # isolate planet hosts and bin them by galactic height
     berger_kepler_planets = berger_kepler_all.loc[berger_kepler_all['num_planets'] > 0]
     berger_kepler_planets = berger_kepler_planets.explode(['periods', 'planet_radii', 'incls', 'mutual_incls', 'eccs', 'omegas'])
+    print("PLANETS BEFORE CUTS: ", np.nansum(berger_kepler_planets.drop_duplicates(subset='kepid').num_planets))
+    berger_kepler_planets_counts_precut = np.array(berger_kepler_planets.groupby(['height_bins']).count().reset_index()['kepid'])
+
     berger_kepler_planets = berger_kepler_planets.loc[(berger_kepler_planets['periods'] <= 40) & (berger_kepler_planets['periods'] > 1)] # limit periods to fairly compare with Zink+ 2023
     berger_kepler_planets = berger_kepler_planets.loc[berger_kepler_planets['planet_radii'] <= 2.] # limit radii to fairly compare with SEs in Zink+ 2023
     #print("NUMBER OF PLANETS: ", len(berger_kepler_planets))
+    print("PLANETS AFTER CUTS: ", np.nansum(berger_kepler_planets.drop_duplicates(subset='kepid').num_planets))
     berger_kepler_planets_counts = np.array(berger_kepler_planets.groupby(['height_bins']).count().reset_index()['kepid'])
-    #print("PLANETS BINNED INTO HEIGHTS: ", berger_kepler_planets_counts)
+    print("TWO: ", berger_kepler_planets_counts)
+    print("TWO: ", np.sum(berger_kepler_planets_counts))
+    print("THREE: ", np.sum(np.array(berger_kepler_planets.drop_duplicates(subset='kepid').groupby(['height_bins']).count().reset_index()['kepid'])))
+    print(len(np.unique(berger_kepler_planets.kepid)))
+
+    """
+    print("RATIOS BINNED INTO HEIGHTS: ", berger_kepler_planets_counts/berger_kepler_counts)
+    plt.scatter(height_bins[:-1], 100*berger_kepler_planets_counts/berger_kepler_counts)
+    plt.show()
+    
+    ### WHY DO I GET A FLAT RELATION BETWEEN PLANET OCCURRENCE AND GALACTIC HEIGHT USING THE GALA-CALCULATED HEIGHTS
+    ### ...especially when there is a soft relation between age and height
+    age_bins = np.array([0, 2, 4, 6, 8, 10, 12])
+    # denominator
+    berger_kepler_all['age_bins'] = pd.cut(berger_kepler_all['age'], bins=age_bins, include_lowest=True)
+    berger_kepler_counts = np.array(berger_kepler_all.groupby(['age_bins']).count().reset_index()['kepid'])
+    # numerator
+    berger_kepler_planets = berger_kepler_all.loc[berger_kepler_all['num_planets'] > 0]
+    berger_kepler_planets = berger_kepler_planets.explode(['periods', 'planet_radii', 'incls', 'mutual_incls', 'eccs', 'omegas'])
+    berger_kepler_planets = berger_kepler_planets.loc[(berger_kepler_planets['periods'] <= 40) & (berger_kepler_planets['periods'] > 1)] # limit periods to fairly compare with Zink+ 2023
+    berger_kepler_planets = berger_kepler_planets.loc[berger_kepler_planets['planet_radii'] <= 2.] # limit radii to fairly compare with SEs in Zink+ 2023
+    berger_kepler_planets_counts = np.array(berger_kepler_planets.groupby(['age_bins']).count().reset_index()['kepid'])
+    print("RATIOS BINNED INTO AGES: ", berger_kepler_planets_counts/berger_kepler_counts)
+    plt.scatter(age_bins[:-1], berger_kepler_planets_counts/berger_kepler_counts)
+    plt.show()
+    quit()
+    """
 
     # turn off usually; just for testing
     #berger_kepler_planets1 = berger_kepler_planets.loc[berger_kepler_planets['height'] <= 150]
@@ -451,11 +608,19 @@ for j in range(3): # 10
     #print(len(berger_kepler_planets1)/len(berger_kepler_stars1))
 
     # calculate "true" planet occurrence
-    physical_planet_occurrence = berger_kepler_planets_counts/berger_kepler_counts
+    print(berger_kepler_planets_counts)
+    print(berger_kepler_counts)
+    physical_planet_occurrence = berger_kepler_planets_counts/berger_kepler_counts # normally yes
+    print(physical_planet_occurrence)
+    physical_planet_occurrence = np.sum(berger_kepler_planets_counts)/np.sum(berger_kepler_counts)# normally no
+    physical_planet_occurrence_precut = np.sum(berger_kepler_planets_counts_precut)/np.sum(berger_kepler_counts)
+    print("PLANETS PER 100 STARS: ", 100*np.sum(berger_kepler_planets_counts)/np.sum(berger_kepler_counts))
 
     #print(physical_planet_occurrence)
     #print("physical planet occurrence rates, per 100 stars: ", 100*physical_planet_occurrence)
     physical_planet_occurrences.append(100*physical_planet_occurrence)
+    physical_planet_occurrences_precut.append(100*physical_planet_occurrence_precut)
+    print("PLANETS PER 100 STARS: ", np.sum(np.array(physical_planet_occurrences)))
 
     detected_planet_occurrences = []
     adjusted_planet_occurrences = []
@@ -580,6 +745,15 @@ for j in range(3): # 10
     #detected_planet_occurrences_all.append(detected_planet_occurrences)
 
 print("YIELDS: ", physical_planet_occurrences)
+#print("YIELDS, ACROSS ALL RUNS: ", np.sum(physical_planet_occurrences, axis=1))
+plt.hist(physical_planet_occurrences, label='R<2; 1<P<40')
+plt.hist(physical_planet_occurrences_precut, label='all small planets, 2<P<300')
+plt.xlabel('planets per 100 stars')
+plt.ylabel('count')
+plt.legend()
+plt.savefig(path+'galactic-occurrence/plots/planets_per_100_stars_control.png')
+plt.show()
+quit()
 
 #detected_planet_occurrences_all = 100 * np.array(detected_planet_occurrences_all)
 mean_transit_multiplicities = 100*np.mean(transit_multiplicities_all, axis=0)
@@ -606,6 +780,8 @@ metallicity_trend = 100 * 0.63 * (10**(-0.14*np.linspace(-0.5, 0.5, 100))) * 0.5
 
 zink_csv = pd.read_csv(path+'galactic-occurrence/data/SupEarths_combine_GaxScale_teff_fresh.csv')
 zink_csv_sn = pd.read_csv(path+'galactic-occurrence/data/SubNeptunes_combine_GaxScale_teff_fresh.csv')
+print(zink_csv)
+quit()
 #print("occurrence stats: ", np.median(zink_csv['Occurrence']), np.std(zink_csv['Occurrence']))
 #print("gamma stats: ", np.median(zink_csv['Gamma']), np.std(zink_csv['Gamma']))
 #print("tau stats: ", np.median(zink_csv['Tau']), np.std(zink_csv['Tau']))
@@ -638,7 +814,7 @@ def power_model(x, yerr, y=None):
     #print("yerr: ", yerr)
     #print("y: ", y)
     #print("sample model: ", model(z_max, tau, occurrence))
-
+    
     with numpyro.plate("data", len(x)):
         numpyro.sample("planet_yield", dist.Normal(planet_yield, yerr), obs=y)
 

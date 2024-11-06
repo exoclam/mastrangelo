@@ -377,8 +377,8 @@ class Star:
         self.midplane = np.random.uniform(low=-np.pi/2, high=np.pi/2) # JAX, but I need to figure out how to properly randomly draw
 
         # prescription for planet-making
-        prob_intact = 0.18 + 0.1 * jax.random.truncated_normal(key=subkey, lower=0, upper=1) # from Lam & Ballard 2024; out of planet hosts
-        #prob_intact = scipy.stats.truncnorm.rvs(0, 1, loc=0.18, scale=0.1)  # np vs JAX bc of random key issues
+        #prob_intact = 0.18 + 0.1 * jax.random.truncated_normal(key=subkey, lower=0, upper=1) # from Lam & Ballard 2024; out of planet hosts
+        prob_intact = scipy.stats.truncnorm.rvs(0, 1, loc=0.18, scale=0.1)  # np vs JAX bc of random key issues
         self.prob_intact = prob_intact
 
         p = simulate_helpers.assign_status(self.frac_host, self.prob_intact)

@@ -70,6 +70,14 @@ def solar_mass_to_cgs(mass):
 def au_to_cgs(distance):
     return distance*1.496e13 # cm
 
+def kpc_to_km(distance):
+    return distance * 3.086e16
+
+def myr_to_s(t):
+    return t * 3.154e7 * 1e6
+
+def kpc_per_myr_to_km_per_s(distance, t):
+    return kpc_to_km(distance)/myr_to_s(t)
 
 ### helper main functions
 def compute_prob(x, m, b, cutoff): # adapted from Ballard et al in prep, log version
@@ -153,10 +161,10 @@ def assign_status(frac_host, prob_intact):
 
         Inputs: 
         - frac_host: planet host fraction [float]
-        - prob_intact: fraction of dynamically cool systems [float]
+        - prob_intact: fraction of dynamically cool systems (out of planet hosts, not all stars) [float]
 
         Output:
-        - p: list of probabilities of a system being each of the three potential statuses
+        - p: list of probabilities of a system being each of the three potential statuses, 'no-planet', 'intact', 'disrupted'
 
         """
         
@@ -538,6 +546,78 @@ def draw_cdpp_array(star_radius, df):
     cdpp = [draw_cdpp(sr, berger_kepler) for sr in star_radius]
     return cdpp
 
+def kepmag_to_noise_floor(target_mag):
+    """
+    Based on Natalia Guerrero's tutorial on photometric precision (actually, the noise floor). 
+    This isn't quite CDPP, but it's close enough for the purposes of calculating planet detections from TRILEGAL. 
+
+    Input: 
+    - target_mag: Kepler filter magnitude of target star (np.array)
+
+    Output:
+    - CDPP: [ppm]
+    """
+
+    ### reference star
+    m1 = np.array([15.962]) # Kepler magnitude of KOI-225; 14.954418 vs 15.962?
+    ref_precision = 473 / 1e6 # photometric precision [ppm] of KOI-225, per Table 2, Colon+ 2012 (https://arxiv.org/pdf/1207.2481)
+    #m1 = np.array([13.046]) # Kepler magnitude of KOI-526; third row of Table 2, Colon+ 2012
+    #ref_precision = 1223/ 1e6 # ditto
+
+    ratio = 100**((m1 - target_mag)/5)  # f2 / f1
+
+    target_precision = (np.sqrt(ratio) / ratio ) * ref_precision * 1e6
+
+    return target_precision
+
+def kepmag_to_cdpp(df, new_kepmag):
+
+    """
+    Use Kepler mag vs CDPP (6 hr) relation from Berger Kepler-Gaia crossmatch to infer CDPP given simulated kepmag from TRILEGAL, etc
+    Inputs:
+    - df: reference DataFrame, with Kepler mag and CDPP
+    - new_kepmag: new Series of Kepler magnitudes, for which I want to sample new CDPPs, eg. from TRILEGAL
+
+    Output:
+    - xbins[new_kepmag_snaps]: snapped version of new_kepmag
+    - new_cdpp_snaps: new array of CDPPs
+    """
+
+    new_kepmag = np.array(new_kepmag)
+    df = df.dropna(subset=['kepmag', 'rrmscdpp06p0'])
+
+    kepmag = np.array(df['kepmag'])
+    cdpp = np.array(df['rrmscdpp06p0'])
+
+    # Create 2D histogram
+    xbins = np.linspace(8, 16, 100)
+    ybins = np.linspace(0, 500, 100)
+    hist, yedges, xedges = np.histogram2d(cdpp, kepmag, bins=[ybins, xbins])
+
+    # for each element in new_kepmag, get closest index along Kep mag (x axis)
+    def find_nearest(array, value):
+        idx = (np.abs(array - value)).argmin()
+        return idx
+
+    new_kepmag_snaps = []
+    new_cdpp_snaps = []
+    for i in range(len(new_kepmag)):
+        new_kepmag_snap = find_nearest(xedges[:-1], value=new_kepmag[i])
+        new_kepmag_snaps.append(new_kepmag_snap)
+
+        # for that column, sample from the 1d histogram 
+        one_d_hist = hist[:, new_kepmag_snap]
+        new_cdpp_snap = np.random.choice(ybins[:-1], size=1, p=one_d_hist/np.sum(one_d_hist))[0]
+        new_cdpp_snaps.append(new_cdpp_snap)
+
+    ### test by visualizing
+    #plt.scatter(xbins[new_kepmag_snaps], new_cdpp_snaps, s=10)
+    #plt.xlabel('Kepler mag')
+    #plt.ylabel('CDPP rms (6 hr) [ppm]')
+    #plt.show()
+
+    return xbins[new_kepmag_snaps], new_cdpp_snaps
+
 def make_pdf_rows(x, mode, err1, err2):
     """
     Row-wise likelihood of asymmetric uncertainty, using Eqn 6 from https://iopscience.iop.org/article/10.3847/1538-3881/abd93f
@@ -593,10 +673,16 @@ def draw_asymmetrically(df, mode_name, err1_name, err2_name, drawn):
     
     if drawn=='age':
         x = np.linspace(0.5, 13.5, 100)
+    elif drawn=='gyro_age':
+        x = np.linspace(0.5, 4., 100)
     elif drawn=='stellar_radius':
         x = np.linspace(0.5, 5., 100)
     elif drawn=='stellar_mass':
         x = np.linspace(0.5, 2.5, 100)
+    elif drawn=='distance':
+        x = np.linspace(0, 5000, 1000)
+    else: 
+        print("Please create a column that is either age, gyro_age, stellar_radius, or stellar_mass!")
 
     """
     TESTING
@@ -629,7 +715,7 @@ def draw_asymmetrically(df, mode_name, err1_name, err2_name, drawn):
                 while draw <= 0: # make sure the draw is positive
                     draw = np.around(np.random.choice(x, p=pdf), 2)
             except:
-                print(i, pdf, mode, err1, err2)
+                print("EXCEPTION: ", i, pdf, mode, err1, err2)
                 break
         
         draws[i] = draw
@@ -1060,7 +1146,7 @@ def gala_galactic_heights(df):
 
     mw_potential = gp.MilkyWayPotential()
 
-    sun_orbit = mw_potential.integrate_orbit(sun_w0, dt=0.5 * u.Myr, t1=0, t2=16 * u.Gyr)
+    sun_orbit = mw_potential.integrate_orbit(sun_w0, dt=0.5 * u.Myr, t1=0, t2=4 * u.Gyr)
 
     star_gaia = GaiaData(merged)
 
@@ -1074,7 +1160,7 @@ def gala_galactic_heights(df):
     zmaxes = []
     for i in tqdm(range(len(star_gaia))):
     #for i in range(4):
-        star_orbit = mw_potential.integrate_orbit(star_w0[i], t=sun_orbit.t)
+        star_orbit = mw_potential.integrate_orbit(star_w0[i], t=sun_orbit.t) 
         zmax = star_orbit.zmax().value
         zmaxes.append(zmax)
 
