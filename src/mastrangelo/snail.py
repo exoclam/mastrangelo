@@ -102,6 +102,7 @@ snail_df.to_csv(path+'galactic-occurrence/data/snail.csv', index=False)
 """
 snail_df = pd.read_csv(path+'galactic-occurrence/data/snail.csv')
 
+fig, ax = plt.subplots(figsize=(6,6)) 
 bins_pos_zs = np.round(np.arange(-1, 1.02, 0.04), 2)
 bins_vel_zs = np.arange(-60, 61, 2.)
 snail_df['bins_pos_zs'] = pd.cut(snail_df['pos_zs'], bins_pos_zs)
@@ -125,7 +126,8 @@ plt.xlabel('Z (kpc)')
 #plt.ylim([-60, 60])
 #plt.xlim([-1, 1])
 #plt.colorbar(label=r'$V_R$ (km $s^{-1}$)')
-plt.savefig(path+'galactic-occurrence/plots/snail.png', bbox_inches='tight')
+fig.tight_layout()
+#plt.savefig(path+'galactic-occurrence/plots/snail.png', bbox_inches='tight')
 plt.show()
 quit()
 

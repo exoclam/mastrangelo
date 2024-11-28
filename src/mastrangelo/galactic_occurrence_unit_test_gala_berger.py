@@ -71,89 +71,6 @@ def literal_eval_w_exceptions(x):
 path = '/Users/chrislam/Desktop/mastrangelo/' # new computer has different username
 
 berger_kepler = pd.read_csv(path+'data/berger_kepler_stellar_fgk.csv') # crossmatched with Gaia via Bedell
-# crossmatch the Berger crossmatch with Bedell crossmatch to align DataFrame for zmaxes (diff of 100 stars, but still)
-berger = Table.read(path+'data/berger_kepler_stellar_fgk.csv')
-megan = Table.read(path+'data/kepler_dr3_good.fits')
-merged = join(berger, megan, keys='kepid')
-berger_kepler = berger_kepler.loc[berger_kepler['kepid'].isin(merged['kepid'])]
-
-### TRILEGAL: read in data and enrich
-#trilegal_kepler = pd.read_csv(path+'galactic-occurrence/data/trilegal_kepler_output204292233874.dat', sep='\s+')
-#datpaths = [
-#                os.path.join(path, 'galactic-occurrence/data/trilegal_kepler_output842802126267.dat'),
-#                os.path.join(path, 'galactic-occurrence/data/trilegal_kepler_output680553906670.dat'),
-#                os.path.join(path, 'galactic-occurrence/data/trilegal_kepler_output204292233874.dat'),
-#                os.path.join(path, 'galactic-occurrence/data/trilegal_kepler_output756168768349.dat')
-#            ]
-datpaths = [
-                os.path.join(path, 'galactic-occurrence/data/trilegal_kepler_thick1.dat'),
-                os.path.join(path, 'galactic-occurrence/data/trilegal_kepler_thick2.dat'),
-                os.path.join(path, 'galactic-occurrence/data/trilegal_kepler_thick3.dat'),
-                os.path.join(path, 'galactic-occurrence/data/trilegal_kepler_thick4.dat')
-            ]
-trilegal_kepler = pd.concat((pd.read_csv(f, sep='\s+') for f in datpaths)) # 120K stars
-trilegal_kepler = trilegal_kepler.loc[trilegal_kepler['m2/m1']==0.].reset_index() # 70K stars 
-trilegal_kepler = trilegal_kepler.loc[(10**trilegal_kepler['logTe'] < 7500) & (10**trilegal_kepler['logTe'] > 5200)] # 60K stars
-#print(trilegal_kepler)
-
-# TRILEGAL logAge bin size is 0.02, so let's introduce a spread of that size; note from Luke Bouma (https://github.com/lgbouma/gyrojo/blob/main/gyrojo/trilegal.py#L92-L108)
-eps = np.random.normal(loc=0, scale=0.02, size=len(trilegal_kepler))
-trilegal_kepler['logAge'] = trilegal_kepler['logAge'].astype(float)
-trilegal_kepler['logAge'] += eps
-#trilegal_kepler['phot_prec'] = simulate_helpers.kepmag_to_noise_floor(trilegal_kepler['Kepler'])
-_, trilegal_kepler['cdpp'] = simulate_helpers.kepmag_to_cdpp(berger_kepler, trilegal_kepler['Kepler'])
-trilegal_kepler['stellar_radius'] = simulate_helpers.stellar_radius_stefan_boltzmann(10**trilegal_kepler['logTe'], 10**trilegal_kepler['logL'])
-
-"""
-### VISUALIZE TRILEGAL SAMPLE PROPERTIES, FOR PAPER FIGURE
-teff_hist, teff_bin_edges = np.histogram(10**trilegal_kepler['logTe'], bins=50)
-print("Teff peak: ", teff_bin_edges[np.argmax(teff_hist)])
-age_hist, age_bin_edges = np.histogram(10**trilegal_kepler['logAge']/1e9, bins=50)
-print("age peak: ", age_bin_edges[np.argmax(age_hist)])
-
-#fig, axes = plt.subplots(figsize=(7,5))
-fig, (ax1, ax2) = plt.subplots(nrows=2, figsize=(7, 5))
-
-#ax1 = plt.subplot2grid((2,1), (0,0))
-ax1.hist(10**trilegal_kepler['logTe'], bins=50, alpha=0.7)
-ax1.set_ylabel("count")
-ax1.set_xlabel(r"$T_{eff}$ [K]")
-# plot vertical red line through median Teff
-ax1.plot([np.median(10**trilegal_kepler['logTe']), np.median(10**trilegal_kepler['logTe'])], 
-         [0,3100], color='r', alpha=0.3, linestyle='--', label=r'median $T_{eff}$')
-#ax1.set_xlim([4800, 7550])
-ax1.legend()
-
-#ax2 = plt.subplot2grid((2,1), (1,0))
-ax2.hist(10**trilegal_kepler['logAge']/1e9, bins=50, alpha=0.7)
-# plot vertical red line through median age 
-ax2.plot([np.median(10**trilegal_kepler['logAge']/1e9), np.median(10**trilegal_kepler['logAge']/1e9)], 
-         [0,3000], color='r', alpha=0.3, linestyle='--', label='median age')
-ax2.set_ylabel("count")
-ax2.set_xlabel("age [Gyr]")
-#ax2.set_xlim([0, 18])
-ax2.legend()
-fig.tight_layout()
-
-print("median Teff: ", np.median(10**trilegal_kepler['logTe']))
-print("median age: ", np.median(10**trilegal_kepler['logAge']/1e9))
-
-plt.savefig(path+'galactic-occurrence/plots/sample_properties_trilegal.pdf', format='pdf')
-plt.show()
-quit()
-"""
-
-"""
-### VISUALIZE RELATION BETWEEN TRILEGAL KEPLER MAGNITUDE AND PROCEDURALLY GENERATED CDPPS
-plt.scatter(trilegal_kepler['Kepler'], trilegal_kepler['cdpp'], s=10)
-#plt.scatter(berger_kepler['kepmag'], berger_kepler['rrmscdpp06p0'], s=10)
-plt.xlabel('Kp mag')
-plt.ylabel('CDPP rms [ppm]')
-plt.xlim([8, 16])
-plt.ylim([0, 320])
-plt.show()
-quit()
-"""
 
 """
 ### TURN ON FOR BOUMA GYRO AGES 
@@ -200,21 +117,7 @@ merged_sub = merged_df.loc[(merged_df['iso_teff'] >= 5000) & (merged_df['iso_tef
 # enrich berger_kepler with z_maxes using gala. just needed to run that one time to output data/zmaxes.csv
 #z_maxes = simulate_helpers.gala_galactic_heights(berger_kepler)
 z_maxes = pd.read_csv(path+'data/zmaxes.csv')
-
 berger_kepler['height'] = z_maxes * 1000
-trilegal_kepler['distance'] = simulate_helpers.distance_modulus_to_distance(trilegal_kepler['m-M0'], perturb=True)
-trilegal_kepler['height'] = simulate_helpers.dist_kepler_to_height(trilegal_kepler['distance']) 
-
-"""
-plt.hist2d(trilegal_kepler['height'], 10**trilegal_kepler['logAge']/1e9, bins=100)
-plt.xlabel('height [pc]')
-plt.ylabel('age [Gyr]')
-#plt.yscale('log')
-plt.xlim([0, 1000])
-#plt.ylim([0, 14])
-plt.savefig(path+'galactic-occurrence/plots/trilegal_height_age.png')
-plt.show()
-"""
 
 """
 ### AGE AND ZMAX CHECKS
@@ -482,7 +385,7 @@ Back to regular programming
 # monotonic: y1 = 0.05, y2 = 0.7, f = 0.43
 threshold = 10. # 13.7 minus stellar age, then round
 frac1 = 0.15 # frac1 < frac2 if comparing cosmic ages
-frac2 = 0.55
+frac2 = 0.8
 
 # does 0.4 < f < 0.5 (Lam & Ballard 2024)? I'll allow down to 0.3 as well (Zhu+ 2018)
 #pop1 = len(berger_kepler.loc[berger_kepler['iso_age'] < threshold]) * frac1
@@ -497,7 +400,7 @@ transit_multiplicities_all = []
 geom_transit_multiplicities_all = []
 completeness_all = []
 # for each model, draw around stellar age errors 10 times
-for j in range(30): # 10
+for j in range(3): # 10
 
     #new_key, subkey = jax.random.split(key)
     #del key  # The old key is consumed by split() -- we must never use it again.
@@ -509,64 +412,36 @@ for j in range(30): # 10
     key, subkey = jax.random.split(key)
 
     # draw stellar radii using asymmetric errors from Berger+ 2020 sample
-    #"""
-    heights = []
-    ages = [] 
-    for i in range(10):
-        berger_kepler_temp = simulate_helpers.draw_asymmetrically(berger_kepler, 'iso_age', 'iso_age_err1', 'iso_age_err2', 'age')
-        #berger_kepler_temp = simulate_helpers.draw_galactic_heights(berger_kepler_temp)
-        heights.append(berger_kepler_temp['height']/1000) # for Ma+ 2017 height
-        ages.append(berger_kepler_temp['age'])
-    heights_clean = np.concatenate(np.array(heights))
-    ages_clean = np.concatenate(np.array(ages))
-    temp_df = pd.DataFrame({'height': heights_clean, 'age': ages_clean})
-    #temp_df = pd.DataFrame({'height': np.array(trilegal_kepler['height']/1000), 'age': 10**(np.array(trilegal_kepler['logAge'])) / 1e9})
-    temp_df = temp_df.loc[(temp_df['height'] <= 1.) & (temp_df['age'] <= 10)] # 213K
+    """
+    #heights = []
+    #ages = [] 
+    #for i in range(10):
+    #    berger_kepler_temp = simulate_helpers.draw_asymmetrically(berger_kepler, 'iso_age', 'iso_age_err1', 'iso_age_err2', 'age')
+    #    #berger_kepler_temp = simulate_helpers.draw_galactic_heights(berger_kepler_temp)
+    #    heights.append(berger_kepler_temp['height']/1000) # for Ma+ 2017 height
+    #    ages.append(berger_kepler_temp['age'])
+    #heights_clean = np.concatenate(np.array(heights))
+    #ages_clean = np.concatenate(np.array(ages))
+    #temp_df = pd.DataFrame({'height': heights_clean, 'age': ages_clean})
+    temp_df = pd.DataFrame({'height': np.array(trilegal_kepler['height']/1000), 'age': 10**(np.array(trilegal_kepler['logAge'])) / 1e9})
+    temp_df = temp_df.loc[(temp_df['height'] <= 0.8) & (temp_df['age'] <= 5)] # 213K
     
-    """
-    old = temp_df.loc[temp_df['age'] > 4]
-    young = temp_df.loc[temp_df['age'] <= 4]
-    plt.hist(old.height, alpha=0.5, label='>4 Gyr', bins=np.linspace(0, 1, 10))
-    plt.hist(young.height, alpha=0.5, label='<4 Gyr', bins=np.linspace(0, 1, 10))
-    plt.xlabel(r'$Z_{max}$ [pc]')
-    plt.legend()
-    plt.savefig(path+'galactic-occurrence/plots/old_vs_young_height_isochrone_gala.png')
-    plt.show()
-    quit()
-    """
-
-    #"""
-    norm = 10
-    plt.hist2d(temp_df['age'], temp_df['height'], bins=10, cmap='Blues')
-    plt.xlabel('Berger+ 2020 isochrone age [Gyr]')
-    plt.ylabel(r'gala-calculated $Z_{max}$ [kpc]')
-    #plt.xlabel('TRILEGAL age [Gyr]')
-    #plt.ylabel('TRILEGAL height [kpc]')
-    plt.tight_layout()
-    plt.savefig(path+'galactic-occurrence/plots/gala_height_age_extended.png') # ma17, gala, trilegal
-    plt.show()
-    quit()
-    #"""
     fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=(12, 4))
     norm = 10
     ax1.hist2d(temp_df['age'], temp_df['height'], bins=10, cmap='Blues')
-    #ax1.set_xlabel('TRILEGAL age [Gyr]')
-    #ax1.set_ylabel('TRILEGAL height [kpc]')
-    ax1.set_xlabel('Berger+ 2020 isochrone age [Gyr]')
-    ax1.set_ylabel(r'gala-calculated $Z_{max}$ [kpc]')
-    ax1.set_title('unnormalized, Berger+ 2020')
+    ax1.set_xlabel('TRILEGAL age [Gyr]')
+    ax1.set_ylabel('TRILEGAL height [kpc]')
+    ax1.set_title('unnormalized, TRILEGAL')
     hist, xedges, yedges = np.histogram2d(temp_df['age'], temp_df['height'], bins=10)
     hist = hist.T
     with np.errstate(divide='ignore', invalid='ignore'):  # suppress division by zero warnings
         hist *= norm / hist.sum(axis=0, keepdims=True)
-        #hist *= norm / hist.sum(axis=1, keepdims=True)
+        hist *= norm / hist.sum(axis=1, keepdims=True)
     ax2.pcolormesh(xedges, yedges, hist, cmap='Blues')
-    ax2.set_title('normalized, Berger+ 2020')
-    #ax2.set_title('normalized, TRILEGAL')
-    #ax2.set_xlabel('TRILEGAL age [Gyr]')
-    ax2.set_xlabel('Berger+ 2020 isochrone age [Gyr]')
+    ax2.set_title('normalized, TRILEGAL')
+    ax2.set_xlabel('TRILEGAL age [Gyr]')
     plt.tight_layout()
-    plt.savefig(path+'galactic-occurrence/plots/gala_height_age_normalized.png') # ma17, gala, trilegal
+    plt.savefig(path+'galactic-occurrence/plots/trilegal_height_age.png') # ma17, gala, trilegal
     plt.show()
     quit()
 
@@ -579,27 +454,61 @@ for j in range(30): # 10
     plt.savefig(path+'galactic-occurrence/plots/ma17_height_age.png')
     plt.show()
     quit()
-    #"""
-    #berger_kepler_temp = simulate_helpers.draw_asymmetrically(berger_kepler, 'iso_rad', 'iso_rad_err1', 'iso_rad_err2', 'stellar_radius')
-    #berger_kepler_temp = simulate_helpers.draw_asymmetrically(berger_kepler, 'radius', 'radius_err1', 'radius_err2', 'stellar_radius')
+    """
 
-    # draw stellar ages in the same way
-    #berger_kepler_temp = simulate_helpers.draw_asymmetrically(berger_kepler_temp, 'iso_age', 'iso_age_err1', 'iso_age_err2', 'age')
-    #berger_kepler_temp = simulate_helpers.draw_asymmetrically(berger_kepler_temp, 'gyro_median', 'gyro_+1sigma', 'gyro_-1sigma', 'age')
-    #berger_kepler_temp = simulate_helpers.draw_star_ages(berger_kepler) # in the future, I should read in from a fixed set of 30 pre-made DataFrames
-    # but wait until we decide for sure whether to use Berger ages or some other age prescription
 
-    # draw stellar masses in the same way
-    #berger_kepler_temp = simulate_helpers.draw_asymmetrically(berger_kepler_temp, 'iso_mass', 'iso_mass_err1', 'iso_mass_err2', 'stellar_mass')
-    #berger_kepler_temp = simulate_helpers.draw_asymmetrically(berger_kepler_temp, 'mass', 'mass_err1', 'mass_err2', 'stellar_mass')
+    heights = []
+    ages = []
+    for i in range(3):
+        berger_kepler_temp = simulate_helpers.draw_asymmetrically(berger_kepler, 'iso_rad', 'iso_rad_err1', 'iso_rad_err2', 'stellar_radius')
+        #berger_kepler_temp = simulate_helpers.draw_asymmetrically(berger_kepler, 'radius', 'radius_err1', 'radius_err2', 'stellar_radius')
 
-    # draw galactic height based on age, using Ma+ 2017 relation
-    #berger_kepler_temp = simulate_helpers.draw_galactic_heights(berger_kepler_temp)
+        # draw stellar ages in the same way
+        berger_kepler_temp = simulate_helpers.draw_asymmetrically(berger_kepler_temp, 'iso_age', 'iso_age_err1', 'iso_age_err2', 'age')
+        #berger_kepler_temp = simulate_helpers.draw_asymmetrically(berger_kepler_temp, 'gyro_median', 'gyro_+1sigma', 'gyro_-1sigma', 'age')
+        #berger_kepler_temp = simulate_helpers.draw_star_ages(berger_kepler) # in the future, I should read in from a fixed set of 30 pre-made DataFrames
+        # but wait until we decide for sure whether to use Berger ages or some other age prescription
+
+        # draw stellar masses in the same way
+        berger_kepler_temp = simulate_helpers.draw_asymmetrically(berger_kepler_temp, 'iso_mass', 'iso_mass_err1', 'iso_mass_err2', 'stellar_mass')
+        #berger_kepler_temp = simulate_helpers.draw_asymmetrically(berger_kepler_temp, 'mass', 'mass_err1', 'mass_err2', 'stellar_mass')
+
+        # draw galactic height based on age, using Ma+ 2017 relation
+        #berger_kepler_temp = simulate_helpers.draw_galactic_heights(berger_kepler_temp)
+
+
+        heights.append(berger_kepler_temp['height'])
+        ages.append(berger_kepler_temp['age'])
+
+    heights_clean = np.concatenate(np.array(heights))
+    ages_clean = np.concatenate(np.array(ages))
+    temp_df = pd.DataFrame({'height': heights_clean, 'age': ages_clean})
+    temp_df = temp_df.loc[(temp_df['height'] <= 1500) & (temp_df['age'] <= 10)] 
+
+
+    hist, xedges, yedges = np.histogram2d(temp_df['age'], temp_df['height'], bins=10)
+
+    fig, (ax1) = plt.subplots(ncols=1, figsize=(8, 4))
+    hist = hist.T
+    norm = 10
+    #with np.errstate(divide='ignore', invalid='ignore'):  # suppress division by zero warnings
+        #hist *= norm / hist.sum(axis=0, keepdims=True)
+        #hist *= norm / hist.sum(axis=1, keepdims=True)
+    ax1.pcolormesh(xedges, yedges, hist, cmap='Blues')
+
+    #plt.hist2d(berger_kepler_planets['age'], berger_kepler_planets['height'], bins=10, cmap='Blues')
+    plt.ylabel('height [pc]')
+    plt.xlabel('age [Gyr]')
+    plt.tight_layout()
+    plt.show()        
+    quit()
+
+
 
     ### create a Population object to hold information about the occurrence law governing that specific population
     # STEP
-    pop = Population(10**trilegal_kepler['logAge']/1e9, threshold, frac1, frac2)
-    #pop = Population(berger_kepler_temp['age'], threshold, frac1, frac2)
+    #pop = Population(10**trilegal_kepler['logAge']/1e9, threshold, frac1, frac2)
+    pop = Population(berger_kepler_temp['age'], threshold, frac1, frac2)
     frac_hosts = pop.galactic_occurrence_step(threshold, frac1, frac2)
 
     # BUMPY
@@ -625,11 +534,11 @@ for j in range(30): # 10
 
     # create Star objects, with their planetary systems
     star_data = []
-    for i in tqdm(range(len(trilegal_kepler))): # 100
+    #for i in tqdm(range(len(trilegal_kepler))): # 100
     #for i in tqdm(range(10000)):
-    #for i in tqdm(range(len(berger_kepler))): # 100
-        #star = Star(berger_kepler_temp['age'][i], berger_kepler_temp['stellar_radius'][i], berger_kepler_temp['stellar_mass'][i], berger_kepler_temp['rrmscdpp06p0'][i], frac_hosts[i], berger_kepler_temp['height'][i], subkey, alpha_se, alpha_sn, berger_kepler_temp['kepid'][i])
-        star = Star(10**trilegal_kepler['logAge'][i], trilegal_kepler['stellar_radius'][i], trilegal_kepler['Mact'][i], trilegal_kepler['cdpp'][i], frac_hosts[i], trilegal_kepler['height'][i], subkey, alpha_se, alpha_sn, kepid=int(i))
+    for i in tqdm(range(len(berger_kepler))): # 100
+        star = Star(berger_kepler_temp['age'][i], berger_kepler_temp['stellar_radius'][i], berger_kepler_temp['stellar_mass'][i], berger_kepler_temp['rrmscdpp06p0'][i], frac_hosts[i], berger_kepler_temp['height'][i], subkey, alpha_se, alpha_sn, berger_kepler_temp['kepid'][i])
+        #star = Star(10**trilegal_kepler['logAge'][i], trilegal_kepler['stellar_radius'][i], trilegal_kepler['Mact'][i], trilegal_kepler['cdpp'][i], frac_hosts[i], trilegal_kepler['height'][i], subkey, alpha_se, alpha_sn, kepid=int(i))
         star_update = {
             'kepid': star.kepid,
             'age': star.age,
@@ -659,8 +568,9 @@ for j in range(30): # 10
 
     ### Convert to Pandas
     berger_kepler_all = pd.DataFrame.from_records(star_data)
+    berger_kepler_all['height'] = berger_kepler_all['height'].astype(float)
     print("BEFORE DROPPING HEIGHTLESS STARS: ", 100*np.nansum(berger_kepler_all.num_planets)/len(berger_kepler_all))
-    berger_kepler_all = berger_kepler_all.dropna(subset='height') # DO I NEED THIS? OTHERWISE IT SEEMS THE HEIGHT AND AGE BINS GO POORLY
+    berger_kepler_all = berger_kepler_all.dropna(subset='height').reset_index()
     print("AFTER DROPPING HEIGHTLESS STARS: ", 100*np.nansum(berger_kepler_all.num_planets)/len(berger_kepler_all))
 
     #berger_kepler_all = berger_kepler_all.replace('  ', ',').replace('\r\n ', ',')
@@ -740,8 +650,20 @@ for j in range(30): # 10
     #print("TEST: PLANETS AFTER CUTS: ", berger_kepler_planets.drop_duplicates(subset='kepid').num_planets)
     #print("TEST: TWO: ", np.array(berger_kepler_planets.groupby(['height_bins']).count().reset_index()))
 
-    plt.scatter(berger_kepler_planets['age'], berger_kepler_planets['height'], s=10)
-    plt.ylabel('height')
+    berger_kepler_planets = berger_kepler_planets.loc[berger_kepler_planets['height'] < 1500]
+    berger_kepler_planets = berger_kepler_planets.loc[berger_kepler_planets['age'] < 10]
+    hist, xedges, yedges = np.histogram2d(berger_kepler_planets['age'], berger_kepler_planets['height'], bins=10)
+
+    fig, (ax1) = plt.subplots(ncols=1, figsize=(8, 4))
+    hist = hist.T
+    norm = 10
+    #with np.errstate(divide='ignore', invalid='ignore'):  # suppress division by zero warnings
+        #hist *= norm / hist.sum(axis=0, keepdims=True)
+        #hist *= norm / hist.sum(axis=1, keepdims=True)
+    ax1.pcolormesh(xedges, yedges, hist, cmap='Blues')
+
+    #plt.hist2d(berger_kepler_planets['age'], berger_kepler_planets['height'], bins=10, cmap='Blues')
+    plt.ylabel('height [pc]')
     plt.xlabel('age [Gyr]')
     plt.show()        
     quit()
@@ -1161,7 +1083,7 @@ ax2.set_ylabel('planet host fraction')
 ax2.set_ylim([0,1])
 
 fig.tight_layout()
-plt.savefig(path+'galactic-occurrence/plots/model_vs_zink_step6_trilegal.png', format='png', bbox_inches='tight')
+plt.savefig(path+'galactic-occurrence/plots/model_vs_zink_step6_gala.png', format='png', bbox_inches='tight')
 plt.show()
 
 """

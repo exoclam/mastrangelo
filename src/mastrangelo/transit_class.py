@@ -68,7 +68,6 @@ class Population:
     Functions that make populations of planetary systems
 
     Attributes:
-    - kepids [jnp.array]: input Kepler IDs
     - ages [jnp.array]: input stellar ages [Gyr]
 
     Output:
@@ -77,9 +76,8 @@ class Population:
     """
 
     def __init__(
-        self, kepids, ages, threshold=None, frac1=None, frac2=None, **kwargs 
+        self, ages, threshold=None, frac1=None, frac2=None, **kwargs 
     ):
-        self.kepids = jnp.array(kepids)
         self.ages = jnp.array(ages)
         self.threshold = threshold
         self.frac1 = frac1
@@ -88,13 +86,6 @@ class Population:
 
     def add_child(self, child): 
         self.children.append(child)
-
-    def serialize(self):
-        s = {}
-        for child in self.children:
-            #s[child.kepid.astype(str)] = child.serialize()
-            s[child.kepid.astype(str)] = child.reprJSON()
-        return s
     
     def sculpting(self, df, m, b, cutoff, bootstrap): # adapted from Ballard et al in prep, log version
         """ 
@@ -353,6 +344,7 @@ class Star:
     - alpha_se: power law exponent for Super-Earth radii
     - alpha_sn: power law exponent for Sub-Neptune radii
     - subkey: JAX split key
+    - kepid: default to None, unless user provides Kepler IDs
 
     Output:
     - Star object, which is populated by Planets
@@ -360,19 +352,21 @@ class Star:
     """
 
     def __init__(
-        self, kepid, age, stellar_radius, stellar_mass, rrmscdpp06p0, frac_host, height, subkey, alpha_se, alpha_sn, **kwargs 
+        self, age, stellar_radius, stellar_mass, rrmscdpp06p0, frac_host, height, subkey, alpha_se, alpha_sn, kepid=None, **kwargs 
     ):
 
-        self.kepid = kepid
+        #self.kepid = kepid
         self.age = age
-        self.stellar_radius = stellar_radius
-        self.stellar_mass = stellar_mass
-        self.rrmscdpp06p0 = rrmscdpp06p0
+        self.stellar_radius = np.array(stellar_radius)
+        self.stellar_mass = np.array(stellar_mass)
+        self.rrmscdpp06p0 = np.array(rrmscdpp06p0)
         self.frac_host = frac_host
-        self.height = height
+        self.height = np.array(height)
         self.alpha_se = alpha_se
         self.alpha_sn = alpha_sn
-        
+        self.kepid = np.array(kepid)
+        #print(self.kepid, self.stellar_radius, self.stellar_mass, self.rrmscdpp06p0, self.height)
+
         #self.midplane = jax.random.uniform(key, minval=-np.pi/2, maxval=np.pi/2)
         self.midplane = np.random.uniform(low=-np.pi/2, high=np.pi/2) # JAX, but I need to figure out how to properly randomly draw
 

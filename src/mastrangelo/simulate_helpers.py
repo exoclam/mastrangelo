@@ -79,6 +79,101 @@ def myr_to_s(t):
 def kpc_per_myr_to_km_per_s(distance, t):
     return kpc_to_km(distance)/myr_to_s(t)
 
+def degrees_to_radians(deg):
+    return deg*np.pi/180
+
+def radians_to_degrees(rad):
+    return rad*180/np.pi
+
+### basic physics equations
+def distance_modulus_to_distance(mu, perturb=False):
+    """
+    Input:
+    - mu: distance modulus, or m-M0
+    Output:
+    - d: distance, in pc
+    """
+
+    if perturb==True:
+        # from Luke Bouma (https://github.com/lgbouma/gyrojo/blob/main/gyrojo/trilegal.py#L92-L108)
+        # m-M0 from TRILEGAL has a bin size of 0.05 dex, so we should introduce a perturbation of that size.
+        eps = np.random.normal(loc=0, scale=0.03, size=len(mu))
+        mu += eps
+        d = 10**(1+(mu/5))
+    
+    else:
+        d = 10**(1+(mu/5))
+
+    return d
+
+def dist_kepler_to_height(d):
+    """
+    Kepler field has a fixed inclination of 13.5 deg. Given a distance modulus, or better yet a distance, we can use middle school math to get the height
+
+    Inputs:
+    - d: distance, in pc
+
+    Output:
+    - h: height off the Galactic midplane, in pc
+    """
+
+    incl = degrees_to_radians(13.5)
+    h = d * np.tan(incl)
+
+    return h
+
+def stellar_radius_stefan_boltzmann(T, L):
+    """
+    Use Stefan-Boltzmann law to calculate stellar radius. 
+
+    Input:
+    - T: Teff in K
+    - L: luminosity, in LSun
+    Output: 
+    - r: stellar radius in Solar radii
+    """
+
+    sigma = 5.67e-8 # W m^-2 K^-4
+    LSun = 3.846e26 # W
+    L = L * LSun
+    denominator = 4*np.pi*sigma*T**4
+    r = np.sqrt(L/denominator) # m
+    r = r / 6.957e8 # RSun
+
+    return r
+
+def bolometric_mag_luminosity(mbol):
+    """
+    Convert bolometric magnitude to luminosity, in W
+    """
+    L0 = 3.0128e28 # W
+    L = L0 * 10**(-mbol/2.512)
+
+    return L
+
+def bolometric_mag_luminosity2(mbol):
+    """
+    Convert bolometric magnitude to luminosity, in W
+    """
+    
+    #LSun = 3.9e33 # erg/s
+    LSun = 3.9e33 * 1e-7 # erg/s to W
+    L = 10**((4.72 - mbol)/2.5)
+
+    return L
+
+def stellar_mass_luminosity(L):
+    """
+    Relate stellar mass and luminosity, in Solar units
+    """
+    LSun = 3.8e26 # Solar luminosity in W
+    L = L / LSun # convert luminosity to Solar units
+
+    Mstar = L**(-3.5) # in Solar masses
+    #Mstar = Mstar * 1.989e30 # kg (W is associated with kg, not g)
+
+    return Mstar 
+
 ### helper main functions
 def compute_prob(x, m, b, cutoff): # adapted from Ballard et al in prep, log version
     # calculate probability of intact vs disrupted
@@ -168,6 +263,7 @@ def assign_status(frac_host, prob_intact):
 
         """
         
+
         p = [1-frac_host, frac_host*prob_intact, frac_host*(1-prob_intact)]
         p = np.asarray(p).astype('float64')
         p = p / np.sum(p)
@@ -1151,15 +1247,13 @@ def gala_galactic_heights(df):
     star_gaia = GaiaData(merged)
 
     star_gaia_c = star_gaia.get_skycoord()
-
     star_galcen = star_gaia_c.transform_to(galcen_frame)
-
     star_w0 = gd.PhaseSpacePosition(star_galcen.data)
 
     # calculate orbits and retrieve Z_maxes
     zmaxes = []
     for i in tqdm(range(len(star_gaia))):
-    #for i in range(4):
+    #for i in range(1000):
         star_orbit = mw_potential.integrate_orbit(star_w0[i], t=sun_orbit.t) 
         zmax = star_orbit.zmax().value
         zmaxes.append(zmax)
